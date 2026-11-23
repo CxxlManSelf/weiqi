@@ -76,7 +76,6 @@
         <button id="edit-nickname-btn-lobby" type="button" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-stone-800 hover:bg-stone-700 border border-stone-700 text-xs sm:text-sm font-medium transition shrink-0">
           <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
           <span class="header-nickname-text max-w-[100px] sm:max-w-[160px] truncate">棋友</span>
-          <span class="header-stats-badge text-[11px] font-bold text-amber-300 shrink-0">0勝0敗</span>
           <span class="text-stone-400 text-xs">✎</span>
         </button>
       </div>
@@ -646,10 +645,7 @@
 
         <!-- 專屬雲端識別碼同步與恢復區 -->
         <div class="p-3 rounded-xl bg-amber-50/80 border border-amber-200 space-y-2.5">
-          <div class="flex items-center justify-between gap-2">
-            <span class="text-xs font-bold text-amber-950">🔑 專屬雲端識別碼（跨手機／電腦同步）</span>
-            <span id="modal-vault-stats-badge" class="px-2 py-0.5 rounded-full bg-amber-600 text-white text-[11px] font-bold">🏆 0勝 0敗</span>
-          </div>
+          <div class="text-xs font-bold text-amber-950">🔑 專屬雲端識別碼（跨手機／電腦同步）</div>
           <p class="text-[11px] text-amber-900 leading-relaxed">
             可直接使用系統配發代碼，或輸入您習慣的<strong>專屬代號／Gmail 信箱</strong>（選填 PIN 碼保護）。重開網頁或換裝置輸入同一組識別碼，即可自動找回<strong>暱稱、建立的房間管理權、雲端棋譜與勝敗戰績</strong>！
           </p>
@@ -1444,7 +1440,7 @@
         if (sec >= 604800) return `${Math.round(sec / 604800)}週`;
         if (sec >= 86400) return `${Math.round(sec / 86400)}天`;
         if (sec >= 3600) return `${Math.round(sec / 3600)}小時`;
-        if (sec >= 60) return `${Math.round(sec / 60)}分`;
+        if (sec > 120) return `${Math.round(sec / 60)}分鐘`;
         return `${sec}秒`;
       }
 
