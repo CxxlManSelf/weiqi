@@ -75,8 +75,7 @@
       <div class="flex items-center gap-1.5 shrink-0">
         <button id="edit-nickname-btn-lobby" type="button" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-stone-800 hover:bg-stone-700 border border-stone-700 text-xs sm:text-sm font-medium transition shrink-0">
           <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span class="header-nickname-text max-w-[100px] sm:max-w-[160px] truncate">棋友</span>
-          <span class="header-stats-badge text-[11px] font-bold text-amber-300 shrink-0">0勝0敗</span>
+          <span class="header-nickname-text max-w-[110px] sm:max-w-[160px] truncate">棋友</span>
           <span class="text-stone-400 text-xs">✎</span>
         </button>
       </div>
@@ -154,24 +153,31 @@
         </div>
 
         <div id="lobby-records-container" class="hidden space-y-2.5">
-          <!-- 專屬雲端識別碼與戰績卡片 -->
-          <div class="p-3 rounded-2xl bg-amber-50/90 border border-amber-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div class="min-w-0 space-y-0.5">
-              <div class="font-bold text-amber-950 flex items-center gap-1.5 flex-wrap">
-                <span>🔑 專屬識別碼：</span>
-                <span id="records-vault-code-text" class="font-mono bg-white px-2 py-0.5 rounded border border-amber-300 text-amber-900">WQ-0000-0000</span>
-                <span id="records-vault-stats-badge" class="px-2 py-0.5 rounded-full bg-amber-600 text-white text-[11px] font-bold">0勝 0敗</span>
+          <!-- 獨一雲端棋譜識別碼管理卡片 -->
+          <div class="p-3 rounded-2xl bg-amber-50/90 border border-amber-200 space-y-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-1.5 min-w-0 flex-wrap">
+                <span class="text-xs font-bold text-amber-950 shrink-0">🔑 雲端棋譜識別碼：</span>
+                <span id="vault-code-display" class="px-2 py-0.5 rounded-lg bg-white border border-amber-300 font-mono font-black text-xs text-amber-900 select-all">WQ-0000-KAYA</span>
+                <span id="vault-stats-badge" class="px-2 py-0.5 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-900 font-bold text-[11px] shrink-0">🏆 0勝 0敗</span>
               </div>
-              <div class="text-[11px] text-amber-800">跨手機、電腦及升級版本只要輸入同一組識別碼，即可同步所有棋譜、戰績與房間！</div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button id="copy-vault-code-btn" type="button" class="px-2.5 py-1 rounded-lg bg-white hover:bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-bold transition">📋 複製</button>
+                <button id="switch-vault-code-btn" type="button" class="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold transition">🔄 切換／自訂</button>
+              </div>
             </div>
-            <div class="flex items-center gap-1.5 shrink-0">
-              <button id="copy-vault-code-btn" type="button" class="px-2.5 py-1.5 rounded-xl bg-white hover:bg-amber-100 border border-amber-300 text-amber-900 font-bold text-xs transition">📋 複製</button>
-              <button id="switch-vault-code-btn" type="button" class="px-2.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition">🔄 切換／恢復</button>
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-amber-200/70 text-[11px] text-amber-900/90">
+              <span>免登入跨手機／電腦與所有升級版本永久同步</span>
+              <div class="flex items-center gap-1.5">
+                <button id="export-vault-backup-btn" type="button" class="px-2 py-0.5 rounded bg-white hover:bg-amber-100 border border-amber-300 font-bold text-amber-900 transition">📦 匯出備份</button>
+                <button id="import-vault-backup-btn" type="button" class="px-2 py-0.5 rounded bg-white hover:bg-amber-100 border border-amber-300 font-bold text-amber-900 transition">📥 還原備份</button>
+                <input id="vault-backup-file-input" type="file" accept=".json,application/json" class="hidden" />
+              </div>
             </div>
           </div>
 
-          <div class="flex items-center justify-between mb-1 px-1">
-            <span id="lobby-records-count-label" class="text-xs font-semibold text-stone-500">☁️ 雲端棋譜庫（不佔手機空間）</span>
+          <div class="flex items-center justify-between px-1">
+            <span id="lobby-records-count-label" class="text-xs font-semibold text-stone-500">☁️ 獨立雲端棋譜庫</span>
             <button id="lobby-import-sgf-btn" type="button" class="text-xs font-bold text-amber-700 hover:text-amber-800 underline">＋ 匯入 SGF 至雲端</button>
           </div>
           <div id="lobby-records-grid" class="space-y-2.5"></div>
@@ -403,13 +409,16 @@
             </div>
 
             <div class="grid grid-cols-2 gap-2.5">
+              <!-- 黑方選手卡 -->
               <div id="black-player-card" class="p-2.5 rounded-xl border-2 border-stone-800 bg-stone-900 text-white space-y-1.5">
                 <div class="flex items-center justify-between gap-1">
                   <span class="text-[11px] font-bold text-amber-400">● 執黑先行</span>
                   <span id="black-captures" class="text-[11px] text-stone-300">提 0 子</span>
                 </div>
-                <div id="black-player-name" class="font-bold text-xs sm:text-sm truncate">等待入座...</div>
-                <div id="black-player-record" class="text-[10px] text-amber-300/90 font-semibold">戰績：—</div>
+                <div class="flex items-center justify-between gap-1">
+                  <div id="black-player-name" class="font-bold text-xs sm:text-sm truncate">等待入座...</div>
+                  <span id="black-player-record" class="hidden px-1.5 py-0.5 rounded bg-stone-800 border border-stone-700 text-[10px] font-bold text-amber-300 shrink-0">0勝 0敗</span>
+                </div>
                 <div class="flex items-center justify-between pt-1 border-t border-stone-700/80">
                   <span id="black-clock-display" class="font-mono font-black text-base sm:text-lg text-amber-300">無限</span>
                   <span id="black-byoyomi-display" class="text-[10px] text-stone-400">包乾</span>
@@ -418,13 +427,16 @@
                 <button id="leave-black-seat-btn" type="button" class="hidden w-full py-1 rounded-lg bg-stone-700 hover:bg-stone-600 text-stone-200 font-semibold text-[11px] transition">離座讓出</button>
               </div>
 
+              <!-- 白方選手卡 -->
               <div id="white-player-card" class="p-2.5 rounded-xl border-2 border-stone-300 bg-stone-50 text-stone-900 space-y-1.5">
                 <div class="flex items-center justify-between gap-1">
                   <span class="text-[11px] font-bold text-stone-600">○ 執白後手</span>
                   <span id="white-captures" class="text-[11px] text-stone-500">提 0 子</span>
                 </div>
-                <div id="white-player-name" class="font-bold text-xs sm:text-sm truncate">等待入座...</div>
-                <div id="white-player-record" class="text-[10px] text-stone-500 font-semibold">戰績：—</div>
+                <div class="flex items-center justify-between gap-1">
+                  <div id="white-player-name" class="font-bold text-xs sm:text-sm truncate">等待入座...</div>
+                  <span id="white-player-record" class="hidden px-1.5 py-0.5 rounded bg-stone-200/90 text-[10px] font-bold text-stone-700 shrink-0">0勝 0敗</span>
+                </div>
                 <div class="flex items-center justify-between pt-1 border-t border-stone-200">
                   <span id="white-clock-display" class="font-mono font-black text-base sm:text-lg text-stone-900">無限</span>
                   <span id="white-byoyomi-display" class="text-[10px] text-stone-500">包乾</span>
@@ -448,11 +460,11 @@
                   <option value="600">基本：10 分鐘</option>
                   <option value="1200">基本：20 分鐘</option>
                   <option value="1800">基本：30 分鐘</option>
-                  <option value="3600">基本：1 小時（慢棋）</option>
-                  <option value="7200">基本：2 小時（慢棋）</option>
-                  <option value="10800">基本：3 小時（慢棋）</option>
-                  <option value="86400">基本：1 天（慢棋）</option>
-                  <option value="604800">基本：1 週（慢棋）</option>
+                  <option value="3600">基本：1 小時</option>
+                  <option value="7200">基本：2 小時</option>
+                  <option value="10800">基本：3 小時</option>
+                  <option value="86400">基本：1 天</option>
+                  <option value="604800">基本：1 週</option>
                 </select>
                 <select id="room-byoyomi-select" class="px-2.5 py-1.5 rounded-lg bg-white border border-stone-300 text-xs font-medium">
                   <option value="none">讀秒：無（包乾）</option>
@@ -461,10 +473,10 @@
                   <option value="30_3">讀秒：30秒 × 3次</option>
                   <option value="60_3">讀秒：60秒 × 3次</option>
                   <option value="120_3">讀秒：120秒 × 3次</option>
-                  <option value="1800_3">讀秒：30分鐘 × 3次（慢棋）</option>
-                  <option value="3600_3">讀秒：1小時 × 3次（慢棋）</option>
-                  <option value="86400_3">讀秒：1天 × 3次（慢棋）</option>
-                  <option value="604800_3">讀秒：1週 × 3次（慢棋）</option>
+                  <option value="1800_3">讀秒：30分鐘 × 3次</option>
+                  <option value="3600_3">讀秒：1小時 × 3次</option>
+                  <option value="86400_3">讀秒：1天 × 3次</option>
+                  <option value="604800_3">讀秒：1週 × 3次</option>
                 </select>
               </div>
             </div>
@@ -532,7 +544,7 @@
             </form>
           </section>
 
-          <!-- 房間內所有在線成員列表（含即時勝敗次數） -->
+          <!-- 房間內所有在線成員列表 -->
           <section id="room-members-panel" class="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
             <div class="px-3.5 py-2 bg-stone-100 border-b border-stone-200 flex items-center justify-between">
               <div class="flex items-center gap-1.5">
@@ -553,7 +565,7 @@
     <div class="bg-white w-full max-w-md max-h-[92vh] rounded-2xl shadow-xl border border-stone-200 overflow-hidden flex flex-col my-auto">
       <div class="px-4 py-3 bg-stone-900 text-white flex items-center justify-between shrink-0">
         <h3 class="font-bold text-sm sm:text-base">建立新房間</h3>
-        <button type="button" onclick="window.__closeAllModals && window.__closeAllModals(event)" class="close-modal-btn text-stone-400 hover:text-white text-lg font-bold px-2 py-0.5 cursor-pointer">✕</button>
+        <button type="button" class="close-modal-btn text-stone-400 hover:text-white text-lg font-bold px-1">✕</button>
       </div>
       <div class="p-4 space-y-3.5 text-xs sm:text-sm overflow-y-auto thin-scroll">
         <div>
@@ -590,11 +602,11 @@
                 <option value="600">10 分鐘</option>
                 <option value="1200">20 分鐘</option>
                 <option value="1800">30 分鐘</option>
-                <option value="3600">1 小時（慢棋）</option>
-                <option value="7200">2 小時（慢棋）</option>
-                <option value="10800">3 小時（慢棋）</option>
-                <option value="86400">1 天（慢棋）</option>
-                <option value="604800">1 週（慢棋）</option>
+                <option value="3600">1 小時</option>
+                <option value="7200">2 小時</option>
+                <option value="10800">3 小時</option>
+                <option value="86400">1 天</option>
+                <option value="604800">1 週</option>
               </select>
             </div>
             <div>
@@ -606,10 +618,10 @@
                 <option value="30_3" selected>30秒 × 3次</option>
                 <option value="60_3">60秒 × 3次</option>
                 <option value="120_3">120秒 × 3次</option>
-                <option value="1800_3">30分鐘 × 3次（慢棋）</option>
-                <option value="3600_3">1小時 × 3次（慢棋）</option>
-                <option value="86400_3">1天 × 3次（慢棋）</option>
-                <option value="604800_3">1週 × 3次（慢棋）</option>
+                <option value="1800_3">30分鐘 × 3次</option>
+                <option value="3600_3">1小時 × 3次</option>
+                <option value="86400_3">1天 × 3次</option>
+                <option value="604800_3">1週 × 3次</option>
               </select>
             </div>
           </div>
@@ -625,7 +637,7 @@
         </div>
       </div>
       <div class="px-4 py-3 bg-stone-50 border-t border-stone-200 flex items-center justify-end gap-2 shrink-0 relative z-10">
-        <button type="button" id="cancel-create-room-btn" onclick="window.__closeAllModals && window.__closeAllModals(event)" class="close-modal-btn px-4 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 active:bg-stone-400 text-stone-700 font-bold text-xs cursor-pointer">取消</button>
+        <button type="button" class="close-modal-btn px-4 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-700 font-bold text-xs">取消</button>
         <button id="confirm-create-room-btn" type="button" onclick="window.__confirmCreateRoom && window.__confirmCreateRoom(event)" class="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-xs shadow-sm cursor-pointer">立即建立</button>
       </div>
     </div>
@@ -635,7 +647,7 @@
   <div id="nickname-modal" class="hidden fixed inset-0 z-50 bg-stone-950/60 overflow-y-auto flex items-start sm:items-center justify-center p-3">
     <div class="bg-white w-full max-w-md max-h-[92vh] rounded-2xl shadow-xl border border-stone-200 overflow-hidden flex flex-col my-auto">
       <div class="px-4 py-3 bg-stone-900 text-white flex items-center justify-between shrink-0">
-        <h3 class="font-bold text-sm">個人棋友暱稱與專屬雲端識別碼</h3>
+        <h3 class="font-bold text-sm">👤 個人暱稱與專屬雲端識別碼</h3>
         <button type="button" class="close-modal-btn text-stone-400 hover:text-white text-lg font-bold">✕</button>
       </div>
       <form id="nickname-form" class="p-4 space-y-3.5 overflow-y-auto thin-scroll">
@@ -644,30 +656,42 @@
           <input id="nickname-input" type="text" maxlength="16" placeholder="輸入暱稱（最多16字）" class="w-full px-3 py-2 rounded-xl border border-stone-300 focus:border-amber-500 focus:outline-none text-sm" />
         </div>
 
-        <!-- 專屬雲端識別碼同步與恢復區 -->
-        <div class="p-3 rounded-xl bg-amber-50/80 border border-amber-200 space-y-2.5">
+        <!-- 專屬雲端識別碼 / 自訂代號（免登入跨手機、電腦永久認領角色與棋譜） -->
+        <div class="p-3 rounded-xl bg-amber-50/80 border border-amber-300 space-y-2">
           <div class="flex items-center justify-between gap-2">
-            <span class="text-xs font-bold text-amber-950">🔑 專屬雲端識別碼（跨手機／電腦同步）</span>
-            <span id="modal-vault-stats-badge" class="px-2 py-0.5 rounded-full bg-amber-600 text-white text-[11px] font-bold">🏆 0勝 0敗</span>
+            <div class="text-xs font-bold text-amber-950">🔑 專屬雲端識別碼（跨裝置認領角色與棋譜）</div>
+            <button id="modal-copy-vault-btn" type="button" class="px-2 py-0.5 rounded-md bg-white hover:bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-bold shrink-0 transition">📋 複製</button>
           </div>
-          <p class="text-[11px] text-amber-900 leading-relaxed">
-            可直接使用系統配發代碼，或輸入您習慣的<strong>專屬代號／Gmail 信箱</strong>（選填 PIN 碼保護）。重開網頁或換裝置輸入同一組識別碼，即可自動找回<strong>暱稱、建立的房間管理權、雲端棋譜與勝敗戰績</strong>！
+          <!-- 識別碼綁定戰績統計列 -->
+          <div class="grid grid-cols-3 gap-1.5 p-2 rounded-lg bg-white border border-amber-200/90 text-center">
+            <div>
+              <div class="text-[10px] text-stone-500 font-semibold">🏆 勝次數</div>
+              <div id="modal-vault-wins" class="font-mono font-black text-sm text-emerald-700">0</div>
+            </div>
+            <div class="border-x border-stone-200">
+              <div class="text-[10px] text-stone-500 font-semibold">📉 敗次數</div>
+              <div id="modal-vault-losses" class="font-mono font-black text-sm text-rose-700">0</div>
+            </div>
+            <div>
+              <div class="text-[10px] text-stone-500 font-semibold">📊 勝率</div>
+              <div id="modal-vault-winrate" class="font-mono font-black text-sm text-amber-800">0%</div>
+            </div>
+          </div>
+          <p class="text-[11px] text-amber-900/90 leading-relaxed">
+            可直接輸入您習慣的<strong>專屬代號（或 Gmail 信箱）</strong>與選填 PIN 碼並套用；重開網頁或更換手機、電腦時輸入同一組識別碼，即可自動找回原暱稱、<strong>所有建立的房間管理權</strong>與雲端棋譜庫：
           </p>
-          <div class="space-y-2">
-            <div class="flex items-center gap-1.5">
-              <input id="modal-vault-code-input" type="text" maxlength="40" placeholder="輸入識別碼或自訂代號..." class="flex-1 min-w-0 px-2.5 py-1.5 rounded-lg bg-white border border-amber-300 font-mono text-xs text-stone-900 focus:outline-none focus:border-amber-600" />
-              <input id="modal-vault-pin-input" type="password" inputmode="numeric" maxlength="8" placeholder="PIN碼(選填)" class="w-24 px-2 py-1.5 rounded-lg bg-white border border-amber-300 text-xs text-stone-900 focus:outline-none focus:border-amber-600" />
-            </div>
-            <div class="flex items-center gap-1.5">
-              <button id="modal-copy-vault-btn" type="button" class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-amber-100 border border-amber-300 text-amber-950 text-xs font-bold shrink-0 transition">📋 複製識別碼</button>
-              <button id="modal-apply-vault-btn" type="button" class="flex-1 py-1.5 px-3 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition">🔐 套用識別碼並認領角色／房間</button>
-            </div>
+          <div class="grid grid-cols-12 gap-1.5">
+            <input id="modal-vault-code-input" type="text" maxlength="36" placeholder="輸入自訂代號或識別碼..." class="col-span-8 px-2.5 py-1.5 rounded-lg bg-white border border-stone-300 focus:border-amber-600 focus:outline-none font-mono font-bold text-xs text-stone-900" />
+            <input id="modal-vault-pin-input" type="password" inputmode="numeric" maxlength="6" placeholder="PIN碼(選填)" class="col-span-4 px-2 py-1.5 rounded-lg bg-white border border-stone-300 focus:border-amber-600 focus:outline-none font-mono text-xs text-stone-900 text-center" />
           </div>
+          <button id="modal-apply-vault-btn" type="button" class="w-full py-2 px-3 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-2xs transition">
+            ✓ 套用此識別碼並認領角色
+          </button>
         </div>
 
         <div class="flex justify-end gap-2 pt-1">
           <button type="button" class="close-modal-btn px-4 py-2 rounded-xl bg-stone-100 text-stone-700 font-bold text-xs">取消</button>
-          <button type="submit" class="px-4 py-2 rounded-xl bg-stone-900 text-white font-bold text-xs">儲存設定</button>
+          <button type="submit" class="px-4 py-2 rounded-xl bg-stone-900 text-white font-bold text-xs">儲存暱稱</button>
         </div>
       </form>
     </div>
@@ -681,6 +705,10 @@
         <button type="button" class="close-modal-btn text-stone-400 hover:text-white text-lg font-bold">✕</button>
       </div>
       <div class="p-4 space-y-3 text-xs sm:text-sm">
+        <div class="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs">
+          <span class="font-semibold text-amber-900">☁️ 目標雲端識別碼：</span>
+          <span id="save-modal-vault-code" class="font-mono font-black text-amber-950">WQ-0000-KAYA</span>
+        </div>
         <div>
           <label for="save-sgf-title-input" class="block font-bold text-stone-700 mb-1">棋譜名稱</label>
           <input id="save-sgf-title-input" type="text" maxlength="48" class="w-full px-3 py-2 rounded-xl border border-stone-300 focus:border-amber-500 focus:outline-none" />
@@ -707,7 +735,10 @@
       </div>
       <div class="p-4 overflow-y-auto thin-scroll space-y-4 text-xs sm:text-sm">
         <div>
-          <div class="font-bold text-stone-800 mb-1.5">1. 從「☁️ 我的雲端棋譜」一鍵載入</div>
+          <div class="flex items-center justify-between gap-2 mb-1.5">
+            <span class="font-bold text-stone-800">1. 從「☁️ 雲端棋譜庫」一鍵載入</span>
+            <span id="load-modal-vault-code" class="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-900">WQ-0000-KAYA</span>
+          </div>
           <div id="load-modal-records-list" class="max-h-40 overflow-y-auto thin-scroll space-y-1.5 p-2 rounded-xl bg-stone-50 border border-stone-200"></div>
         </div>
 
@@ -805,7 +836,7 @@
     (() => {
       'use strict';
 
-      // ==================== 1. 專屬獨立 Firebase 專案設定（my-go-a276e） ====================
+      // ==================== 0. 獨立雲端 Firebase 預設連線設定（跨所有版本永久通用） ====================
       const DEFAULT_EXTERNAL_FIREBASE_CONFIG = {
         apiKey: "AIzaSyC213Jd7mA5ViTnwkAH0Pm_-dCnjZPyXms",
         authDomain: "my-go-a276e.firebaseapp.com",
@@ -816,12 +847,14 @@
         measurementId: "G-4XW285PRPM"
       };
 
+      // ==================== 1. 六層持久化身分、雲端識別碼與安全儲存 ====================
       const STORAGE_KEYS = {
         UID: 'weiqi_uid_v2',
         NICKNAME: 'weiqi_nickname_v2',
-        VAULT_CODE: 'weiqi_vault_code_v2',
-        VAULT_PIN: 'weiqi_vault_pin_v2',
         IDENTITY: 'weiqi_identity_bundle_v2',
+        VAULT_CODE: 'weiqi_vault_code_v1',
+        VAULT_STATS: 'weiqi_vault_stats_v1',
+        LOCAL_VAULT_RECORDS: 'weiqi_local_vault_records_v1',
         PUBLIC_BASE_URL: 'weiqi_public_base_url_v1',
         ROOMS: 'weiqi_rooms_v2',
         LOBBY_CHAT: 'weiqi_lobby_chat_v2'
@@ -835,8 +868,11 @@
 
       const memoryStorage = {};
       const WINDOW_NAME_PREFIX = '__WEIQI_STATE_V2__:';
+      let isBootHydrated = false;
       let hasExplicitPersistedUid = false;
       let hasExplicitPersistedNickname = false;
+      let isFreshlyGeneratedUid = false;
+      let isFreshlyGeneratedVaultCode = false;
       let fallbackSessionNickname = '';
 
       function readWindowNameStore() {
@@ -920,9 +956,10 @@
               const keysToRead = [
                 STORAGE_KEYS.UID,
                 STORAGE_KEYS.NICKNAME,
-                STORAGE_KEYS.VAULT_CODE,
-                STORAGE_KEYS.VAULT_PIN,
                 STORAGE_KEYS.IDENTITY,
+                STORAGE_KEYS.VAULT_CODE,
+                STORAGE_KEYS.VAULT_STATS,
+                STORAGE_KEYS.LOCAL_VAULT_RECORDS,
                 STORAGE_KEYS.PUBLIC_BASE_URL,
                 STORAGE_KEYS.ROOMS
               ];
@@ -991,9 +1028,9 @@
         if (
           key === STORAGE_KEYS.UID ||
           key === STORAGE_KEYS.NICKNAME ||
-          key === STORAGE_KEYS.VAULT_CODE ||
-          key === STORAGE_KEYS.VAULT_PIN ||
           key === STORAGE_KEYS.IDENTITY ||
+          key === STORAGE_KEYS.VAULT_CODE ||
+          key === STORAGE_KEYS.VAULT_STATS ||
           key === STORAGE_KEYS.PUBLIC_BASE_URL
         ) {
           const wn = readWindowNameStore();
@@ -1006,24 +1043,8 @@
         }
       }
 
-      function normalizeVaultCode(raw) {
-        return String(raw || '')
-          .trim()
-          .replace(/[\/\\#?\[\]]/g, '_')
-          .slice(0, 40);
-      }
-
-      function generateVaultCode() {
-        const digits = Math.floor(1000 + Math.random() * 9000);
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let tail = '';
-        for (let i = 0; i < 4; i++) {
-          tail += chars[Math.floor(Math.random() * chars.length)];
-        }
-        return `WQ-${digits}-${tail}`;
-      }
-
-      function simpleStableHash(str) {
+      function simpleStableHash(input) {
+        const str = String(input || '');
         let h1 = 0xdeadbeef;
         let h2 = 0x41c6ce57;
         for (let i = 0; i < str.length; i++) {
@@ -1036,48 +1057,402 @@
         return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
       }
 
+      function normalizeVaultCode(raw) {
+        const trimmed = String(raw || '').trim();
+        if (!trimmed) return '';
+        const cleaned = trimmed
+          .replace(/[\\/\s]+/g, '-')
+          .replace(/[^a-zA-Z0-9\u4e00-\u9fa5_@.-]/g, '')
+          .slice(0, 36);
+        if (cleaned.length < 2) return '';
+        return /^[a-zA-Z0-9_@.-]+$/.test(cleaned) ? cleaned.toUpperCase() : cleaned;
+      }
+
+      function generateVaultCode() {
+        const words = ['KAYA', 'STAR', 'TENGEN', 'HANE', 'ATARI', 'SENTE', 'JOSEKI', 'KO', 'DAME', 'GOBAN'];
+        const num = Math.floor(1000 + Math.random() * 9000);
+        const w = words[Math.floor(Math.random() * words.length)];
+        return `WQ-${num}-${w}`;
+      }
+
       function deriveDeterministicAccountUid(vaultCode, pin = '') {
-        const cleanCode = normalizeVaultCode(vaultCode).toLowerCase();
-        const cleanPin = String(pin || '').trim();
-        return `acct_${simpleStableHash(`${cleanCode}::${cleanPin}`)}`;
+        const seed = `weiqi_acct_v1:${vaultCode}:${pin || ''}`;
+        return `acct_${simpleStableHash(seed)}_${simpleStableHash(seed + '_salt')}`;
       }
 
       function getMyVaultCode() {
-        hydrateIdentityFromBundle();
-        let code = normalizeVaultCode(safeGetStorage(STORAGE_KEYS.VAULT_CODE));
-        if (!code) {
-          code = generateVaultCode();
-          safeSetStorage(STORAGE_KEYS.VAULT_CODE, code, true);
+        const stored = normalizeVaultCode(safeGetStorage(STORAGE_KEYS.VAULT_CODE));
+        if (stored) return stored;
+        const fresh = generateVaultCode();
+        isFreshlyGeneratedVaultCode = true;
+        if (isBootHydrated) {
+          safeSetStorage(STORAGE_KEYS.VAULT_CODE, fresh, true);
+        } else {
+          memoryStorage[STORAGE_KEYS.VAULT_CODE] = fresh;
         }
-        return code;
+        return fresh;
       }
 
-      function getMyVaultPin() {
-        return String(safeGetStorage(STORAGE_KEYS.VAULT_PIN) || '').trim();
+      // ==================== 識別碼戰績（勝次數、敗次數）管理與雲端同步 ====================
+      let vaultProfileUnsubscribe = null;
+
+      function getLocalVaultStatsMap() {
+        try {
+          const raw = safeGetStorage(STORAGE_KEYS.VAULT_STATS);
+          const parsed = raw ? JSON.parse(raw) : {};
+          return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (e) {
+          return {};
+        }
+      }
+
+      function saveLocalVaultStatsForCode(vaultCode, wins, losses) {
+        const code = normalizeVaultCode(vaultCode);
+        if (!code) return;
+        const map = getLocalVaultStatsMap();
+        map[code] = {
+          wins: Math.max(0, Math.floor(Number(wins) || 0)),
+          losses: Math.max(0, Math.floor(Number(losses) || 0)),
+          updatedAt: Date.now()
+        };
+        try {
+          safeSetStorage(STORAGE_KEYS.VAULT_STATS, JSON.stringify(map), true);
+        } catch (e) {}
       }
 
       function getVaultStats(vaultCode) {
         const code = normalizeVaultCode(vaultCode || getMyVaultCode());
-        const prof = appState.vaultProfiles && appState.vaultProfiles[code];
-        const wins = Math.max(0, Number(prof?.wins || 0));
-        const losses = Math.max(0, Number(prof?.losses || 0));
+        if (!code) return { wins: 0, losses: 0 };
+        const cloudProf = appState.vaultProfiles && appState.vaultProfiles[code];
+        const localProf = getLocalVaultStatsMap()[code];
+        const wins = Math.max(
+          0,
+          Math.floor(Number(cloudProf?.wins ?? localProf?.wins ?? 0) || 0)
+        );
+        const losses = Math.max(
+          0,
+          Math.floor(Number(cloudProf?.losses ?? localProf?.losses ?? 0) || 0)
+        );
         return { wins, losses };
       }
 
-      function updateAllVaultStatsUI() {
-        const myStats = getVaultStats(getMyVaultCode());
-        const shortLabel = `${myStats.wins}勝${myStats.losses}敗`;
-        const fullLabel = `🏆 ${myStats.wins}勝 ${myStats.losses}敗`;
-        document.querySelectorAll('.header-stats-badge').forEach((el) => {
-          el.textContent = shortLabel;
-        });
-        const recBadge = document.getElementById('records-vault-stats-badge');
-        if (recBadge) recBadge.textContent = `${myStats.wins}勝 ${myStats.losses}敗`;
-        const modalBadge = document.getElementById('modal-vault-stats-badge');
-        if (modalBadge) modalBadge.textContent = fullLabel;
+      function subscribeVaultProfileStats(vaultCode) {
+        const code = normalizeVaultCode(vaultCode || getMyVaultCode());
+        if (vaultProfileUnsubscribe) {
+          vaultProfileUnsubscribe();
+          vaultProfileUnsubscribe = null;
+        }
+        updateVaultAndCloudStatusUI();
+        if (!useFirebase || !db || !code) return;
 
-        const codeTextEl = document.getElementById('records-vault-code-text');
-        if (codeTextEl) codeTextEl.textContent = getMyVaultCode();
+        vaultProfileUnsubscribe = getCloudCollection('vault_profiles')
+          .doc(code)
+          .onSnapshot(
+            (doc) => {
+              if (!doc.exists) return;
+              const d = doc.data() || {};
+              const wins = Math.max(0, Math.floor(Number(d.wins) || 0));
+              const losses = Math.max(0, Math.floor(Number(d.losses) || 0));
+              appState.vaultProfiles[code] = {
+                ...(appState.vaultProfiles[code] || {}),
+                ...d,
+                wins,
+                losses
+              };
+              saveLocalVaultStatsForCode(code, wins, losses);
+              updateVaultAndCloudStatusUI();
+              if (state && state.mode === 'match') {
+                updateMatchPanelUI();
+              }
+            },
+            () => {}
+          );
+      }
+
+      async function recordVaultMatchOutcome(vaultCode, isWin, fallbackName = '') {
+        const code = normalizeVaultCode(vaultCode);
+        if (!code) return;
+
+        const curLocal = getVaultStats(code);
+        const nextLocalWins = curLocal.wins + (isWin ? 1 : 0);
+        const nextLocalLosses = curLocal.losses + (isWin ? 0 : 1);
+        saveLocalVaultStatsForCode(code, nextLocalWins, nextLocalLosses);
+        appState.vaultProfiles[code] = {
+          ...(appState.vaultProfiles[code] || {}),
+          vaultCode: code,
+          wins: nextLocalWins,
+          losses: nextLocalLosses,
+          updatedAt: Date.now()
+        };
+
+        if (useFirebase && db) {
+          const docRef = getCloudCollection('vault_profiles').doc(code);
+          try {
+            await db.runTransaction(async (tx) => {
+              const snap = await tx.get(docRef);
+              const existing = snap.exists ? snap.data() || {} : {};
+              const baseWins = Math.max(0, Math.floor(Number(existing.wins) || 0));
+              const baseLosses = Math.max(0, Math.floor(Number(existing.losses) || 0));
+              const updatedWins = baseWins + (isWin ? 1 : 0);
+              const updatedLosses = baseLosses + (isWin ? 0 : 1);
+              const payload = {
+                vaultCode: code,
+                wins: updatedWins,
+                losses: updatedLosses,
+                updatedAt: Date.now()
+              };
+              if (!existing.nickname && fallbackName) {
+                payload.nickname = fallbackName;
+              }
+              tx.set(docRef, payload, { merge: true });
+            });
+          } catch (e) {}
+        }
+        updateVaultAndCloudStatusUI();
+      }
+
+      function settleFinishedMatchVaultStats() {
+        if (!state || state.mode !== 'match' || state.status !== 'finished' || !state.result) return;
+        if (state.statsRecorded) return;
+        const winner = state.result.winner;
+        if (winner !== 'B' && winner !== 'W') return;
+
+        state.statsRecorded = true;
+        const bVault = normalizeVaultCode(state.blackVaultCode);
+        const wVault = normalizeVaultCode(state.whiteVaultCode);
+
+        if (bVault) {
+          recordVaultMatchOutcome(bVault, winner === 'B', state.blackName || '');
+        }
+        if (wVault && wVault !== bVault) {
+          recordVaultMatchOutcome(wVault, winner === 'W', state.whiteName || '');
+        }
+      }
+
+      function syncVaultProfileToCloud(vaultCode, uid, nickname, pinHash = null) {
+        if (!useFirebase || !db || !vaultCode || !uid) return;
+        const localStats = getVaultStats(vaultCode);
+        const payload = {
+          vaultCode,
+          uid,
+          nickname: nickname || getMyNickname(),
+          wins: localStats.wins,
+          losses: localStats.losses,
+          updatedAt: Date.now()
+        };
+        if (pinHash !== null) {
+          payload.pinHash = pinHash;
+        }
+        const docRef = getCloudCollection('vault_profiles').doc(vaultCode);
+        docRef
+          .get()
+          .then((snap) => {
+            if (snap.exists) {
+              const ex = snap.data() || {};
+              payload.wins = Math.max(localStats.wins, Math.floor(Number(ex.wins) || 0));
+              payload.losses = Math.max(localStats.losses, Math.floor(Number(ex.losses) || 0));
+            }
+            return docRef.set(payload, { merge: true });
+          })
+          .catch(() => {});
+      }
+
+      function isDefaultGuestNickname(name) {
+        return !name || /^棋友_\d{4}$/.test(String(name).trim());
+      }
+
+      function isRoomHost(room) {
+        if (!room) return false;
+        const myUid = getMyUid();
+        const myVault = getMyVaultCode();
+        if (room.hostUid && room.hostUid === myUid) return true;
+        if (room.hostVaultCode && myVault && room.hostVaultCode === myVault) return true;
+        return false;
+      }
+
+      function reclaimMatchingRolesAcrossRooms(targetUid, targetNickname, targetVaultCode = '') {
+        const myUid = targetUid || getMyUid();
+        const myVault = normalizeVaultCode(targetVaultCode || getMyVaultCode());
+        const myNick = String(targetNickname || getMyNickname() || '').trim();
+        const canMatchByNick = !isDefaultGuestNickname(myNick);
+        let reclaimedCount = 0;
+
+        const syncSingleRoomOwnership = (r) => {
+          if (!r) return false;
+          let changed = false;
+
+          const matchHost =
+            (myVault && r.hostVaultCode === myVault) ||
+            (r.hostUid === myUid) ||
+            (canMatchByNick && r.hostName === myNick);
+          if (matchHost) {
+            if (r.hostUid !== myUid) { r.hostUid = myUid; changed = true; }
+            if (myVault && r.hostVaultCode !== myVault) { r.hostVaultCode = myVault; changed = true; }
+            if (canMatchByNick && r.hostName !== myNick) { r.hostName = myNick; changed = true; }
+          }
+
+          const matchBlack =
+            (myVault && r.blackVaultCode === myVault) ||
+            (r.blackUid === myUid) ||
+            (canMatchByNick && r.blackName === myNick);
+          if (matchBlack) {
+            if (r.blackUid !== myUid) { r.blackUid = myUid; changed = true; }
+            if (myVault && r.blackVaultCode !== myVault) { r.blackVaultCode = myVault; changed = true; }
+            if (canMatchByNick && r.blackName !== myNick) { r.blackName = myNick; changed = true; }
+          }
+
+          const matchWhite =
+            (myVault && r.whiteVaultCode === myVault) ||
+            (r.whiteUid === myUid) ||
+            (canMatchByNick && r.whiteName === myNick);
+          if (matchWhite) {
+            if (r.whiteUid !== myUid) { r.whiteUid = myUid; changed = true; }
+            if (myVault && r.whiteVaultCode !== myVault) { r.whiteVaultCode = myVault; changed = true; }
+            if (canMatchByNick && r.whiteName !== myNick) { r.whiteName = myNick; changed = true; }
+          }
+
+          const matchPresenter =
+            (myVault && r.studyControllerVaultCode === myVault) ||
+            (r.studyControllerUid === myUid) ||
+            (canMatchByNick && r.studyControllerName === myNick);
+          if (matchPresenter) {
+            if (r.studyControllerUid !== myUid) { r.studyControllerUid = myUid; changed = true; }
+            if (myVault && r.studyControllerVaultCode !== myVault) { r.studyControllerVaultCode = myVault; changed = true; }
+            if (canMatchByNick && r.studyControllerName !== myNick) { r.studyControllerName = myNick; changed = true; }
+          }
+
+          return changed;
+        };
+
+        Object.values(appState.rooms || {}).forEach((r) => {
+          if (syncSingleRoomOwnership(r)) {
+            reclaimedCount++;
+            if (useFirebase && db) {
+              getCloudCollection('rooms')
+                .doc(r.id)
+                .set(serializeRoomForFirestore(r), { merge: true })
+                .catch(() => {});
+            }
+          }
+        });
+        if (reclaimedCount > 0) saveLocalRooms();
+
+        if (state && syncSingleRoomOwnership(state)) {
+          reclaimedCount++;
+          updateMyRoomPresence(state.id, true);
+          persistCurrentRoomAndSync(false);
+          updateAllRoomUI();
+        }
+        return reclaimedCount;
+      }
+
+      async function setMyVaultCode(rawCode, shouldResubscribe = true, restoreIdentityFromCloud = true, rawPin = '') {
+        const norm = normalizeVaultCode(rawCode);
+        if (!norm) {
+          showToast('帳號格式不符（請輸入 2～36 碼 Gmail、中文、英數字）');
+          return false;
+        }
+        const pin = String(rawPin || '').trim();
+        const enteredPinHash = pin ? simpleStableHash(`${norm}#${pin}`) : '';
+        const deterministicUid = deriveDeterministicAccountUid(norm, pin);
+
+        let cloudProf = null;
+        if (restoreIdentityFromCloud && useFirebase && db) {
+          try {
+            const snap = await getCloudCollection('vault_profiles').doc(norm).get();
+            if (snap.exists) {
+              cloudProf = snap.data() || null;
+            }
+          } catch (e) {}
+        }
+
+        if (cloudProf && cloudProf.pinHash) {
+          if (!enteredPinHash || cloudProf.pinHash !== enteredPinHash) {
+            showToast('🔒 此帳號設有安全 PIN 碼，請在右側輸入正確 PIN 碼！', 3600);
+            return false;
+          }
+        }
+
+        isFreshlyGeneratedVaultCode = false;
+        safeSetStorage(STORAGE_KEYS.VAULT_CODE, norm, true);
+        updateVaultAndCloudStatusUI();
+
+        const targetUid = (cloudProf && cloudProf.uid) || deterministicUid;
+        const guessedNickFromAcct = !hasExplicitPersistedNickname && !norm.includes('@') && !/^WQ-\d{4}-/.test(norm)
+          ? norm.slice(0, 16)
+          : null;
+        const targetNick = (cloudProf && cloudProf.nickname) || guessedNickFromAcct || (hasExplicitPersistedNickname ? getMyNickname() : null);
+
+        adoptPersistedIdentity(targetUid, targetNick, !!targetNick);
+        if (targetNick) {
+          setMyNickname(targetNick, true);
+        }
+
+        const effectiveNick = getMyNickname();
+        reclaimMatchingRolesAcrossRooms(getMyUid(), effectiveNick, norm);
+
+        if (useFirebase && db) {
+          syncVaultProfileToCloud(norm, getMyUid(), effectiveNick, cloudProf?.pinHash || enteredPinHash || '');
+          getCloudCollection('rooms')
+            .get()
+            .then((snap) => {
+              let anyCloudUpdated = false;
+              snap.forEach((doc) => {
+                const rData = normalizeRoomFromRemote(doc.data());
+                if (rData && rData.id) {
+                  appState.rooms[rData.id] = rData;
+                  anyCloudUpdated = true;
+                }
+              });
+              if (anyCloudUpdated) {
+                reclaimMatchingRolesAcrossRooms(getMyUid(), getMyNickname(), norm);
+                renderLobbyRooms();
+              }
+            })
+            .catch(() => {});
+        }
+
+        if (shouldResubscribe) {
+          subscribeVaultRecords(norm);
+          subscribeVaultProfileStats(norm);
+        }
+        return true;
+      }
+
+      function promptSwitchVaultCode() {
+        openNicknameSettingsModal();
+        setTimeout(() => {
+          const inp = document.getElementById('modal-vault-code-input');
+          inp?.focus();
+          inp?.select();
+        }, 60);
+      }
+
+      function updateVaultAndCloudStatusUI() {
+        const code = getMyVaultCode();
+        const stats = getVaultStats(code);
+        const total = stats.wins + stats.losses;
+        const winRate = total > 0 ? Math.round((stats.wins / total) * 100) : 0;
+
+        const codeEl = document.getElementById('vault-code-display');
+        const statsBadgeEl = document.getElementById('vault-stats-badge');
+        const saveCodeEl = document.getElementById('save-modal-vault-code');
+        const loadCodeEl = document.getElementById('load-modal-vault-code');
+        const modalVaultInp = document.getElementById('modal-vault-code-input');
+        const modalWinsEl = document.getElementById('modal-vault-wins');
+        const modalLossesEl = document.getElementById('modal-vault-losses');
+        const modalWinrateEl = document.getElementById('modal-vault-winrate');
+
+        if (codeEl) codeEl.textContent = code;
+        if (statsBadgeEl) statsBadgeEl.textContent = `🏆 ${stats.wins}勝 ${stats.losses}敗 (${winRate}%)`;
+        if (saveCodeEl) saveCodeEl.textContent = code;
+        if (loadCodeEl) loadCodeEl.textContent = code;
+        if (modalWinsEl) modalWinsEl.textContent = String(stats.wins);
+        if (modalLossesEl) modalLossesEl.textContent = String(stats.losses);
+        if (modalWinrateEl) modalWinrateEl.textContent = `${winRate}%`;
+        if (modalVaultInp && document.activeElement !== modalVaultInp) {
+          modalVaultInp.value = code;
+        }
       }
 
       function persistIdentityBundle(uid, nickname, isExplicitNick) {
@@ -1085,8 +1460,6 @@
         const bundle = JSON.stringify({
           uid,
           nickname: isExplicitNick ? nickname : '',
-          vaultCode: getMyVaultCode(),
-          vaultPin: getMyVaultPin(),
           updatedAt: Date.now()
         });
         safeSetStorage(STORAGE_KEYS.IDENTITY, bundle, true);
@@ -1105,12 +1478,6 @@
             safeSetStorage(STORAGE_KEYS.NICKNAME, parsed.nickname, false);
             hasExplicitPersistedNickname = true;
           }
-          if (parsed && parsed.vaultCode) {
-            safeSetStorage(STORAGE_KEYS.VAULT_CODE, normalizeVaultCode(parsed.vaultCode), false);
-          }
-          if (parsed && parsed.vaultPin !== undefined) {
-            safeSetStorage(STORAGE_KEYS.VAULT_PIN, String(parsed.vaultPin || ''), false);
-          }
         } catch (e) {}
       }
 
@@ -1128,9 +1495,14 @@
           return uid;
         }
         uid = generateId('u');
-        hasExplicitPersistedUid = true;
-        safeSetStorage(STORAGE_KEYS.UID, uid, true);
-        persistIdentityBundle(uid, '', false);
+        isFreshlyGeneratedUid = true;
+        if (isBootHydrated) {
+          hasExplicitPersistedUid = true;
+          safeSetStorage(STORAGE_KEYS.UID, uid, true);
+          persistIdentityBundle(uid, '', false);
+        } else {
+          memoryStorage[STORAGE_KEYS.UID] = uid;
+        }
         return uid;
       }
 
@@ -1148,27 +1520,15 @@
         return fallbackSessionNickname;
       }
 
-      function syncVaultProfileToCloud(vaultCode, nickname, uid, pin = '') {
-        if (!useFirebase || !db || !vaultCode) return;
-        const cleanCode = normalizeVaultCode(vaultCode);
-        if (!cleanCode) return;
-        const payload = {
-          vaultCode: cleanCode,
-          uid: uid || getMyUid(),
-          nickname: nickname || getMyNickname(),
-          updatedAt: Date.now()
-        };
-        if (pin !== undefined) {
-          payload.pin = String(pin || '');
-        }
-        db.collection('weiqi_vault_profiles')
-          .doc(cleanCode)
+      function syncProfileNicknameToCloud(uid, nickname) {
+        if (!useFirebase || !db || !uid || !nickname) return;
+        const vaultCode = getMyVaultCode();
+        const payload = { uid, nickname, vaultCode, updatedAt: Date.now() };
+        getCloudCollection('user_profiles')
+          .doc(uid)
           .set(payload, { merge: true })
           .catch(() => {});
-        db.collection('weiqi_user_profiles')
-          .doc(payload.uid)
-          .set({ uid: payload.uid, nickname: payload.nickname, vaultCode: cleanCode, updatedAt: Date.now() }, { merge: true })
-          .catch(() => {});
+        syncVaultProfileToCloud(vaultCode, uid, nickname);
       }
 
       function setMyNickname(newName, isExplicit = true) {
@@ -1186,32 +1546,36 @@
           el.textContent = clean;
         });
         if (isExplicit) {
-          syncVaultProfileToCloud(getMyVaultCode(), clean, uid, getMyVaultPin());
+          syncProfileNicknameToCloud(uid, clean);
         }
         return clean;
       }
 
       function recoverNicknameFromKnownData(uid) {
-        if (!uid || hasExplicitPersistedNickname) return false;
-        const myCode = getMyVaultCode();
-        const vProf = appState.vaultProfiles && appState.vaultProfiles[myCode];
-        if (vProf && vProf.nickname) {
-          setMyNickname(vProf.nickname, true);
-          return true;
-        }
+        if (!uid) return false;
         const prof = appState.cloudProfiles && appState.cloudProfiles[uid];
-        if (prof && prof.nickname) {
-          setMyNickname(prof.nickname, true);
-          return true;
+        if (prof) {
+          if (prof.vaultCode && isFreshlyGeneratedVaultCode) {
+            isFreshlyGeneratedVaultCode = false;
+            safeSetStorage(STORAGE_KEYS.VAULT_CODE, prof.vaultCode, true);
+            updateVaultAndCloudStatusUI();
+            subscribeVaultRecords(prof.vaultCode);
+            subscribeVaultProfileStats(prof.vaultCode);
+          }
+          if (prof.nickname && !hasExplicitPersistedNickname) {
+            setMyNickname(prof.nickname, true);
+            return true;
+          }
         }
+        if (hasExplicitPersistedNickname) return false;
         const roomsList = Object.values(appState.rooms || {});
         for (const r of roomsList) {
           if (!r) continue;
           const found =
-            ((r.blackUid === uid || (myCode && r.blackVaultCode === myCode)) && r.blackName) ||
-            ((r.whiteUid === uid || (myCode && r.whiteVaultCode === myCode)) && r.whiteName) ||
-            ((r.studyControllerUid === uid || (myCode && r.studyControllerVaultCode === myCode)) && r.studyControllerName) ||
-            ((r.hostUid === uid || (myCode && r.hostVaultCode === myCode)) && r.hostName) ||
+            (r.blackUid === uid && r.blackName) ||
+            (r.whiteUid === uid && r.whiteName) ||
+            (r.studyControllerUid === uid && r.studyControllerName) ||
+            (r.hostUid === uid && r.hostName) ||
             '';
           if (found) {
             setMyNickname(found, true);
@@ -1220,199 +1584,112 @@
             return true;
           }
         }
+        const chats = appState.lobbyChat || [];
+        for (let i = chats.length - 1; i >= 0; i--) {
+          if (chats[i] && chats[i].uid === uid && chats[i].name) {
+            setMyNickname(chats[i].name, true);
+            return true;
+          }
+        }
         return false;
       }
 
-      async function applyVaultCodeAndClaimIdentity(rawCode, rawPin = '') {
-        const cleanCode = normalizeVaultCode(rawCode);
-        if (!cleanCode) {
-          showToast('請輸入有效的專屬識別碼或代號');
-          return false;
-        }
-        const cleanPin = String(rawPin || '').trim();
-
-        let cloudProfile = (appState.vaultProfiles && appState.vaultProfiles[cleanCode]) || null;
-        if (!cloudProfile && useFirebase && db) {
-          try {
-            const doc = await db.collection('weiqi_vault_profiles').doc(cleanCode).get();
-            if (doc.exists) {
-              cloudProfile = doc.data();
-              appState.vaultProfiles[cleanCode] = cloudProfile;
-            }
-          } catch (e) {}
-        }
-
-        if (cloudProfile && cloudProfile.pin && String(cloudProfile.pin) !== cleanPin) {
-          showToast('❌ PIN 碼錯誤，無法認領此專屬識別碼！', 3400);
-          return false;
-        }
-
+      function adoptPersistedIdentity(targetUid, targetNickname, isExplicitNick = false) {
         const oldUid = getMyUid();
-        const oldVaultCode = getMyVaultCode();
-        const targetUid =
-          (cloudProfile && cloudProfile.uid) ||
-          deriveDeterministicAccountUid(cleanCode, cleanPin);
+        const oldName = getMyNickname();
+        const myVault = getMyVaultCode();
+        let changed = false;
 
-        safeSetStorage(STORAGE_KEYS.VAULT_CODE, cleanCode, true);
-        safeSetStorage(STORAGE_KEYS.VAULT_PIN, cleanPin, true);
-        safeSetStorage(STORAGE_KEYS.UID, targetUid, true);
-        hasExplicitPersistedUid = true;
-
-        const inputNick = document.getElementById('nickname-input')?.value.trim();
-        const resolvedNick =
-          (cloudProfile && cloudProfile.nickname) ||
-          (inputNick && !inputNick.startsWith('棋友_') ? inputNick : '') ||
-          (hasExplicitPersistedNickname ? getMyNickname() : '');
-
-        if (resolvedNick) {
-          setMyNickname(resolvedNick, true);
-        } else {
-          persistIdentityBundle(targetUid, '', false);
+        if (targetUid && targetUid !== oldUid) {
+          safeSetStorage(STORAGE_KEYS.UID, targetUid, true);
+          hasExplicitPersistedUid = true;
+          isFreshlyGeneratedUid = false;
+          changed = true;
+        }
+        if (targetNickname && (isExplicitNick || !hasExplicitPersistedNickname)) {
+          setMyNickname(targetNickname, isExplicitNick);
+          changed = true;
+        } else if (changed) {
+          persistIdentityBundle(getMyUid(), hasExplicitPersistedNickname ? getMyNickname() : '', hasExplicitPersistedNickname);
         }
 
         const finalUid = getMyUid();
         const finalName = getMyNickname();
 
-        syncVaultProfileToCloud(cleanCode, finalName, finalUid, cleanPin);
+        if (changed && (oldUid !== finalUid || (hasExplicitPersistedNickname && oldName !== finalName))) {
+          Object.values(appState.rooms || {}).forEach((r) => {
+            if (!r) return;
+            let localRoomChanged = false;
+            if (r.hostUid === oldUid || r.hostUid === finalUid || (myVault && r.hostVaultCode === myVault)) {
+              r.hostUid = finalUid;
+              if (myVault) r.hostVaultCode = myVault;
+              if (hasExplicitPersistedNickname) r.hostName = finalName;
+              localRoomChanged = true;
+            }
+            if (r.blackUid === oldUid || r.blackUid === finalUid || (myVault && r.blackVaultCode === myVault)) {
+              r.blackUid = finalUid;
+              if (myVault) r.blackVaultCode = myVault;
+              if (hasExplicitPersistedNickname) r.blackName = finalName;
+              localRoomChanged = true;
+            }
+            if (r.whiteUid === oldUid || r.whiteUid === finalUid || (myVault && r.whiteVaultCode === myVault)) {
+              r.whiteUid = finalUid;
+              if (myVault) r.whiteVaultCode = myVault;
+              if (hasExplicitPersistedNickname) r.whiteName = finalName;
+              localRoomChanged = true;
+            }
+            if (r.studyControllerUid === oldUid || r.studyControllerUid === finalUid || (myVault && r.studyControllerVaultCode === myVault)) {
+              r.studyControllerUid = finalUid;
+              if (myVault) r.studyControllerVaultCode = myVault;
+              if (hasExplicitPersistedNickname) r.studyControllerName = finalName;
+              localRoomChanged = true;
+            }
+            if (localRoomChanged && useFirebase && db) {
+              getCloudCollection('rooms')
+                .doc(r.id)
+                .set(serializeRoomForFirestore(r), { merge: true })
+                .catch(() => {});
+            }
+          });
+          saveLocalRooms();
 
-        // 自動認領並同步所有屬於此識別碼或舊帳號的房間所有權
-        Object.values(appState.rooms || {}).forEach((r) => {
-          if (!r) return;
-          let roomChanged = false;
-          const matchHost =
-            r.hostVaultCode === cleanCode ||
-            r.hostUid === finalUid ||
-            r.hostUid === oldUid ||
-            (oldVaultCode && r.hostVaultCode === oldVaultCode);
-          if (matchHost) {
-            r.hostUid = finalUid;
-            r.hostVaultCode = cleanCode;
-            if (resolvedNick) r.hostName = finalName;
-            roomChanged = true;
-          }
-
-          const matchBlack =
-            r.blackVaultCode === cleanCode ||
-            r.blackUid === finalUid ||
-            r.blackUid === oldUid;
-          if (matchBlack) {
-            r.blackUid = finalUid;
-            r.blackVaultCode = cleanCode;
-            if (resolvedNick) r.blackName = finalName;
-            roomChanged = true;
-          }
-
-          const matchWhite =
-            r.whiteVaultCode === cleanCode ||
-            r.whiteUid === finalUid ||
-            r.whiteUid === oldUid;
-          if (matchWhite) {
-            r.whiteUid = finalUid;
-            r.whiteVaultCode = cleanCode;
-            if (resolvedNick) r.whiteName = finalName;
-            roomChanged = true;
-          }
-
-          const matchPresenter =
-            r.studyControllerVaultCode === cleanCode ||
-            r.studyControllerUid === finalUid ||
-            r.studyControllerUid === oldUid;
-          if (matchPresenter) {
-            r.studyControllerUid = finalUid;
-            r.studyControllerVaultCode = cleanCode;
-            if (resolvedNick) r.studyControllerName = finalName;
-            roomChanged = true;
-          }
-
-          if (roomChanged && useFirebase && db) {
-            db.collection('weiqi_rooms')
-              .doc(r.id)
-              .set(serializeRoomForFirestore(r), { merge: true })
-              .catch(() => {});
-          }
-        });
-        saveLocalRooms();
-
-        if (state) {
-          let activeChanged = false;
-          if (state.hostVaultCode === cleanCode || state.hostUid === finalUid || state.hostUid === oldUid) {
-            state.hostUid = finalUid;
-            state.hostVaultCode = cleanCode;
-            if (resolvedNick) state.hostName = finalName;
-            activeChanged = true;
-          }
-          if (state.blackVaultCode === cleanCode || state.blackUid === finalUid || state.blackUid === oldUid) {
-            state.blackUid = finalUid;
-            state.blackVaultCode = cleanCode;
-            if (resolvedNick) state.blackName = finalName;
-            activeChanged = true;
-          }
-          if (state.whiteVaultCode === cleanCode || state.whiteUid === finalUid || state.whiteUid === oldUid) {
-            state.whiteUid = finalUid;
-            state.whiteVaultCode = cleanCode;
-            if (resolvedNick) state.whiteName = finalName;
-            activeChanged = true;
-          }
-          if (state.studyControllerVaultCode === cleanCode || state.studyControllerUid === finalUid || state.studyControllerUid === oldUid) {
-            state.studyControllerUid = finalUid;
-            state.studyControllerVaultCode = cleanCode;
-            if (resolvedNick) state.studyControllerName = finalName;
-            activeChanged = true;
-          }
-          if (activeChanged) {
-            updateMyRoomPresence(state.id, true);
-            persistCurrentRoomAndSync(false);
+          if (state) {
+            let roomTouched = false;
+            if (state.hostUid === oldUid || state.hostUid === finalUid || (myVault && state.hostVaultCode === myVault)) {
+              state.hostUid = finalUid;
+              if (myVault) state.hostVaultCode = myVault;
+              if (hasExplicitPersistedNickname) state.hostName = finalName;
+              roomTouched = true;
+            }
+            if (state.blackUid === oldUid || state.blackUid === finalUid || (myVault && state.blackVaultCode === myVault)) {
+              state.blackUid = finalUid;
+              if (myVault) state.blackVaultCode = myVault;
+              if (hasExplicitPersistedNickname) state.blackName = finalName;
+              roomTouched = true;
+            }
+            if (state.whiteUid === oldUid || state.whiteUid === finalUid || (myVault && state.whiteVaultCode === myVault)) {
+              state.whiteUid = finalUid;
+              if (myVault) state.whiteVaultCode = myVault;
+              if (hasExplicitPersistedNickname) state.whiteName = finalName;
+              roomTouched = true;
+            }
+            if (state.studyControllerUid === oldUid || state.studyControllerUid === finalUid || (myVault && state.studyControllerVaultCode === myVault)) {
+              state.studyControllerUid = finalUid;
+              if (myVault) state.studyControllerVaultCode = myVault;
+              if (hasExplicitPersistedNickname) state.studyControllerName = finalName;
+              roomTouched = true;
+            }
+            if (roomTouched) {
+              updateMyRoomPresence(state.id, true);
+              persistCurrentRoomAndSync(false);
+            }
           }
         }
 
-        subscribeCloudRecords(cleanCode);
-        updateAllVaultStatsUI();
-        renderLobbyRooms();
-        if (state) updateAllRoomUI();
-        showToast(`✅ 已套用識別碼「${cleanCode}」並同步戰績、棋譜與房間權限！`, 3200);
-        return true;
-      }
-
-      function recordMatchWinLossToVault(winnerColor) {
-        if (!state || state.mode !== 'match' || state.statsRecorded) return;
-        state.statsRecorded = true;
-        const bCode = normalizeVaultCode(state.blackVaultCode || '');
-        const wCode = normalizeVaultCode(state.whiteVaultCode || '');
-        const now = Date.now();
-
-        if (bCode && bCode !== wCode) {
-          const curB = getVaultStats(bCode);
-          const nextB = {
-            vaultCode: bCode,
-            nickname: state.blackName || '黑方',
-            uid: state.blackUid || '',
-            wins: curB.wins + (winnerColor === 'B' ? 1 : 0),
-            losses: curB.losses + (winnerColor === 'W' ? 1 : 0),
-            updatedAt: now
-          };
-          appState.vaultProfiles[bCode] = { ...(appState.vaultProfiles[bCode] || {}), ...nextB };
-          if (useFirebase && db) {
-            db.collection('weiqi_vault_profiles').doc(bCode).set(nextB, { merge: true }).catch(() => {});
-          }
+        if (changed) {
+          renderLobbyRooms();
+          if (state) updateAllRoomUI();
         }
-
-        if (wCode && bCode !== wCode) {
-          const curW = getVaultStats(wCode);
-          const nextW = {
-            vaultCode: wCode,
-            nickname: state.whiteName || '白方',
-            uid: state.whiteUid || '',
-            wins: curW.wins + (winnerColor === 'W' ? 1 : 0),
-            losses: curW.losses + (winnerColor === 'B' ? 1 : 0),
-            updatedAt: now
-          };
-          appState.vaultProfiles[wCode] = { ...(appState.vaultProfiles[wCode] || {}), ...nextW };
-          if (useFirebase && db) {
-            db.collection('weiqi_vault_profiles').doc(wCode).set(nextW, { merge: true }).catch(() => {});
-          }
-        }
-
-        updateAllVaultStatsUI();
       }
 
       function getCoordLabel(x, y, size) {
@@ -1428,24 +1705,26 @@
         if (s >= 86400) {
           const d = Math.floor(s / 86400);
           const h = Math.floor((s % 86400) / 3600);
-          return `${d}天${h}時`;
+          const m = Math.floor((s % 3600) / 60);
+          return `${d}天${String(h).padStart(2, '0')}時${String(m).padStart(2, '0')}分`;
         }
         if (s >= 3600) {
           const h = Math.floor(s / 3600);
           const m = Math.floor((s % 3600) / 60);
-          return `${h}時${String(m).padStart(2, '0')}分`;
+          const r = s % 60;
+          return `${h}:${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
         }
         const m = Math.floor(s / 60);
         const r = s % 60;
         return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
       }
 
-      function formatByoyomiPeriodLabel(sec) {
-        if (sec >= 604800) return `${Math.round(sec / 604800)}週`;
-        if (sec >= 86400) return `${Math.round(sec / 86400)}天`;
-        if (sec >= 3600) return `${Math.round(sec / 3600)}小時`;
-        if (sec >= 60) return `${Math.round(sec / 60)}分`;
-        return `${sec}秒`;
+      function formatByoyomiShortLabel(sec) {
+        if (sec === 604800) return '1週';
+        if (sec === 86400) return '1天';
+        if (sec === 3600) return '1小時';
+        if (sec === 1800) return '30分';
+        return `${sec}s`;
       }
 
       function parseByoyomiOption(val) {
@@ -1805,7 +2084,7 @@
         };
       }
 
-      // ==================== 4. 狀態管理與雲端/跨分頁即時同步 ====================
+      // ==================== 4. 狀態管理與獨立雲端資料庫即時同步 ====================
       const appState = {
         lobbyTab: 'all',
         searchQuery: '',
@@ -1842,6 +2121,7 @@
       let auth = null;
       let currentUser = null;
       let useFirebase = false;
+      let isExternalFirebase = false;
       let roomUnsubscribe = null;
       let roomChatUnsubscribe = null;
       let roomMembersUnsubscribe = null;
@@ -1858,34 +2138,105 @@
         bc = null;
       }
 
-      function subscribeCloudRecords(vaultCode) {
+      function getCloudCollection(shortName) {
+        if (isExternalFirebase) {
+          return db.collection(`weiqi_${shortName}`);
+        }
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'weiqi-default';
+        return db.collection(`artifacts/${appId}/public/data/${shortName}`);
+      }
+
+      function getLocalVaultCacheMap() {
+        try {
+          const raw = safeGetStorage(STORAGE_KEYS.LOCAL_VAULT_RECORDS);
+          const parsed = raw ? JSON.parse(raw) : {};
+          return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (e) {
+          return {};
+        }
+      }
+
+      function saveLocalVaultRecordsForCode(vaultCode, recordsList) {
+        if (!vaultCode) return;
+        const map = getLocalVaultCacheMap();
+        map[vaultCode] = Array.isArray(recordsList) ? recordsList : [];
+        try {
+          safeSetStorage(STORAGE_KEYS.LOCAL_VAULT_RECORDS, JSON.stringify(map), true);
+        } catch (e) {}
+      }
+
+      function loadLocalVaultRecordsForCode(vaultCode) {
+        const map = getLocalVaultCacheMap();
+        const list = map[vaultCode];
+        return Array.isArray(list) ? list : [];
+      }
+
+      function subscribeVaultRecords(vaultCode) {
+        const code = normalizeVaultCode(vaultCode || getMyVaultCode());
         if (recordsUnsubscribe) {
           recordsUnsubscribe();
           recordsUnsubscribe = null;
         }
-        const cleanCode = normalizeVaultCode(vaultCode || getMyVaultCode());
-        if (!useFirebase || !db || !cleanCode) {
-          appState.records = [];
-          renderLobbyRecords();
+        const localCached = loadLocalVaultRecordsForCode(code);
+        appState.records = localCached;
+        renderLobbyRecords();
+
+        if (!useFirebase || !db || !code) {
           return;
         }
-        recordsUnsubscribe = db.collection(`weiqi_vault_profiles/${cleanCode}/records`).onSnapshot(
-          (snap) => {
-            const list = [];
-            snap.forEach((doc) => {
-              const d = doc.data();
-              if (d && d.id) list.push(d);
-            });
-            list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-            appState.records = list;
-            renderLobbyRecords();
-            const loadModal = document.getElementById('load-sgf-modal');
-            if (loadModal && !loadModal.classList.contains('hidden')) {
-              renderLoadModalRecordsList();
-            }
-          },
-          () => {}
-        );
+
+        recordsUnsubscribe = getCloudCollection('vault_records')
+          .where('vaultCode', '==', code)
+          .onSnapshot(
+            (snap) => {
+              const cloudMap = {};
+              snap.forEach((doc) => {
+                const d = doc.data();
+                if (d && d.id) cloudMap[d.id] = d;
+              });
+              const merged = Object.values(cloudMap);
+              merged.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+              appState.records = merged;
+              saveLocalVaultRecordsForCode(code, merged);
+              renderLobbyRecords();
+              const loadModal = document.getElementById('load-sgf-modal');
+              if (loadModal && !loadModal.classList.contains('hidden')) {
+                renderLoadModalRecordsList();
+              }
+            },
+            () => {}
+          );
+      }
+
+      async function handleAuthenticatedUserReady(user) {
+        if (!useFirebase || !db || !user) return;
+        currentUser = user;
+        const authUid = user.uid;
+        const prevUid = getMyUid();
+
+        let cloudNick = null;
+        let cloudVault = null;
+        try {
+          const pubDoc = await getCloudCollection('user_profiles').doc(authUid).get();
+          if (pubDoc.exists) {
+            const pData = pubDoc.data();
+            if (pData?.nickname) cloudNick = pData.nickname;
+            if (pData?.vaultCode) cloudVault = normalizeVaultCode(pData.vaultCode);
+          }
+        } catch (e) {}
+
+        const targetCanonicalUid =
+          hasExplicitPersistedUid && prevUid && !prevUid.startsWith('tmp_')
+            ? prevUid
+            : authUid;
+        const effectiveNick = hasExplicitPersistedNickname ? getMyNickname() : cloudNick;
+        adoptPersistedIdentity(targetCanonicalUid, effectiveNick || null, !!effectiveNick);
+        if (cloudVault && isFreshlyGeneratedVaultCode) {
+          await setMyVaultCode(cloudVault, true, false);
+        }
+        if (effectiveNick) {
+          syncProfileNicknameToCloud(getMyUid(), effectiveNick);
+        }
       }
 
       function normalizeRoomFromRemote(raw) {
@@ -1905,76 +2256,115 @@
         return copy;
       }
 
-      async function initSyncBackend() {
+      async function hydrateStorageBeforeBoot() {
         hydrateIdentityFromBundle();
-        loadLocalRooms();
-        loadLocalLobbyChat();
-        tryAutoJoinPendingRoom();
-
         try {
           const idbData = await loadAllFromIndexedDb();
           if (idbData[STORAGE_KEYS.IDENTITY]) {
             try {
               const b = JSON.parse(idbData[STORAGE_KEYS.IDENTITY]);
-              if (b && b.vaultCode) {
-                safeSetStorage(STORAGE_KEYS.VAULT_CODE, normalizeVaultCode(b.vaultCode), false);
-              }
-              if (b && b.vaultPin !== undefined) {
-                safeSetStorage(STORAGE_KEYS.VAULT_PIN, String(b.vaultPin || ''), false);
-              }
-              if (b && b.uid && !hasExplicitPersistedUid) {
+              if (b && b.uid) {
                 safeSetStorage(STORAGE_KEYS.UID, b.uid, false);
                 hasExplicitPersistedUid = true;
               }
-              if (b && b.nickname && !hasExplicitPersistedNickname) {
-                setMyNickname(b.nickname, true);
+              if (b && b.nickname) {
+                safeSetStorage(STORAGE_KEYS.NICKNAME, b.nickname, false);
+                hasExplicitPersistedNickname = true;
               }
             } catch (e) {}
-          }
-          if (idbData[STORAGE_KEYS.VAULT_CODE] && !safeGetStorage(STORAGE_KEYS.VAULT_CODE)) {
-            safeSetStorage(STORAGE_KEYS.VAULT_CODE, normalizeVaultCode(idbData[STORAGE_KEYS.VAULT_CODE]), false);
           }
           if (idbData[STORAGE_KEYS.UID] && !hasExplicitPersistedUid) {
             safeSetStorage(STORAGE_KEYS.UID, idbData[STORAGE_KEYS.UID], false);
             hasExplicitPersistedUid = true;
           }
           if (idbData[STORAGE_KEYS.NICKNAME] && !hasExplicitPersistedNickname) {
-            setMyNickname(idbData[STORAGE_KEYS.NICKNAME], true);
+            safeSetStorage(STORAGE_KEYS.NICKNAME, idbData[STORAGE_KEYS.NICKNAME], false);
+            hasExplicitPersistedNickname = true;
+          }
+          if (idbData[STORAGE_KEYS.VAULT_CODE] && !safeGetStorage(STORAGE_KEYS.VAULT_CODE)) {
+            safeSetStorage(STORAGE_KEYS.VAULT_CODE, idbData[STORAGE_KEYS.VAULT_CODE], false);
+          }
+          if (idbData[STORAGE_KEYS.VAULT_STATS] && !safeGetStorage(STORAGE_KEYS.VAULT_STATS)) {
+            safeSetStorage(STORAGE_KEYS.VAULT_STATS, idbData[STORAGE_KEYS.VAULT_STATS], false);
+          }
+          if (idbData[STORAGE_KEYS.LOCAL_VAULT_RECORDS] && !safeGetStorage(STORAGE_KEYS.LOCAL_VAULT_RECORDS)) {
+            safeSetStorage(STORAGE_KEYS.LOCAL_VAULT_RECORDS, idbData[STORAGE_KEYS.LOCAL_VAULT_RECORDS], false);
           }
           if (idbData[STORAGE_KEYS.PUBLIC_BASE_URL] && !safeGetStorage(STORAGE_KEYS.PUBLIC_BASE_URL)) {
             safeSetStorage(STORAGE_KEYS.PUBLIC_BASE_URL, idbData[STORAGE_KEYS.PUBLIC_BASE_URL], false);
           }
-          if (idbData[STORAGE_KEYS.ROOMS] && !Object.keys(appState.rooms).length) {
-            try {
-              const rms = JSON.parse(idbData[STORAGE_KEYS.ROOMS]);
-              if (rms && typeof rms === 'object') {
-                Object.keys(rms).forEach((id) => {
-                  appState.rooms[id] = normalizeRoomFromRemote(rms[id]);
-                });
-                saveLocalRooms();
-                renderLobbyRooms();
-                tryAutoJoinPendingRoom();
-              }
-            } catch (e) {}
+          if (idbData[STORAGE_KEYS.ROOMS] && !safeGetStorage(STORAGE_KEYS.ROOMS)) {
+            safeSetStorage(STORAGE_KEYS.ROOMS, idbData[STORAGE_KEYS.ROOMS], false);
           }
         } catch (e) {}
 
+        isBootHydrated = true;
+        const finalUid = getMyUid();
+        const finalVault = getMyVaultCode();
+        safeSetStorage(STORAGE_KEYS.UID, finalUid, true);
+        safeSetStorage(STORAGE_KEYS.VAULT_CODE, finalVault, true);
+        persistIdentityBundle(finalUid, hasExplicitPersistedNickname ? getMyNickname() : '', hasExplicitPersistedNickname);
+      }
+
+      async function initSyncBackend() {
+        loadLocalRooms();
+        loadLocalLobbyChat();
+        tryAutoJoinPendingRoom();
+
+        updateVaultAndCloudStatusUI();
         recoverNicknameFromKnownData(getMyUid());
-        updateAllVaultStatsUI();
 
         try {
-          const cfg = DEFAULT_EXTERNAL_FIREBASE_CONFIG;
-          if (cfg && cfg.apiKey) {
-            if (!firebase.apps.length) firebase.initializeApp(cfg);
+          let activeCfg = null;
+          let externalMode = false;
+          if (DEFAULT_EXTERNAL_FIREBASE_CONFIG && DEFAULT_EXTERNAL_FIREBASE_CONFIG.apiKey) {
+            activeCfg = DEFAULT_EXTERNAL_FIREBASE_CONFIG;
+            externalMode = true;
+          } else if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            activeCfg = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
+            externalMode = false;
+          }
+
+          if (activeCfg && activeCfg.apiKey) {
+            if (!firebase.apps.length) firebase.initializeApp(activeCfg);
             db = firebase.firestore();
+            isExternalFirebase = externalMode;
             useFirebase = true;
+
             if (firebase.auth) {
               auth = firebase.auth();
-              auth.signInAnonymously()
-                .then((cred) => {
-                  currentUser = (cred && cred.user) || auth.currentUser || null;
-                })
-                .catch(() => {});
+              const restoredUser = await new Promise((resolve) => {
+                let settled = false;
+                const unsub = auth.onAuthStateChanged((u) => {
+                  if (settled) return;
+                  settled = true;
+                  unsub();
+                  resolve(u || null);
+                });
+                setTimeout(() => {
+                  if (!settled) {
+                    settled = true;
+                    try { unsub(); } catch (e) {}
+                    resolve(auth.currentUser || null);
+                  }
+                }, 1500);
+              });
+
+              if (restoredUser) {
+                currentUser = restoredUser;
+              } else if (externalMode) {
+                const cred = await auth.signInAnonymously().catch(() => null);
+                currentUser = (cred && cred.user) || auth.currentUser || null;
+              } else {
+                let cred = null;
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                  cred = await auth.signInWithCustomToken(__initial_auth_token).catch(() => null);
+                }
+                if (!cred || !cred.user) {
+                  cred = await auth.signInAnonymously().catch(() => null);
+                }
+                currentUser = (cred && cred.user) || auth.currentUser || null;
+              }
             }
           }
         } catch (e) {
@@ -1982,29 +2372,14 @@
         }
 
         if (useFirebase && db) {
-          const myCode = getMyVaultCode();
-          syncVaultProfileToCloud(myCode, getMyNickname(), getMyUid(), getMyVaultPin());
-          subscribeCloudRecords(myCode);
+          if (currentUser) {
+            await handleAuthenticatedUserReady(currentUser);
+          } else {
+            syncProfileNicknameToCloud(getMyUid(), getMyNickname());
+          }
+          const authUid = currentUser ? currentUser.uid : null;
 
-          db.collection('weiqi_vault_profiles').onSnapshot(
-            (snap) => {
-              snap.forEach((doc) => {
-                const d = doc.data();
-                if (d && d.vaultCode) {
-                  appState.vaultProfiles[d.vaultCode] = d;
-                }
-              });
-              recoverNicknameFromKnownData(getMyUid());
-              updateAllVaultStatsUI();
-              if (state) {
-                updateMatchPanelUI();
-                renderRoomMembersList();
-              }
-            },
-            () => {}
-          );
-
-          db.collection('weiqi_user_profiles').onSnapshot(
+          getCloudCollection('user_profiles').onSnapshot(
             (snap) => {
               snap.forEach((doc) => {
                 const d = doc.data();
@@ -2013,12 +2388,41 @@
                 }
               });
               recoverNicknameFromKnownData(getMyUid());
+              if (state) renderRoomMembersList();
             },
             () => {}
           );
 
-          db.collection('weiqi_rooms').onSnapshot(
+          getCloudCollection('vault_profiles').onSnapshot(
             (snap) => {
+              let updated = false;
+              snap.forEach((doc) => {
+                const d = doc.data();
+                const code = normalizeVaultCode(d?.vaultCode || doc.id);
+                if (code && d) {
+                  appState.vaultProfiles[code] = {
+                    ...(appState.vaultProfiles[code] || {}),
+                    ...d,
+                    wins: Math.max(0, Math.floor(Number(d.wins) || 0)),
+                    losses: Math.max(0, Math.floor(Number(d.losses) || 0))
+                  };
+                  updated = true;
+                }
+              });
+              if (updated) {
+                updateVaultAndCloudStatusUI();
+                if (state) {
+                  if (state.mode === 'match') updateMatchPanelUI();
+                  renderRoomMembersList();
+                }
+              }
+            },
+            () => {}
+          );
+
+          getCloudCollection('rooms').onSnapshot(
+            (snap) => {
+              let needsOwnershipHeal = false;
               snap.docChanges().forEach((chg) => {
                 if (chg.type === 'removed') {
                   delete appState.rooms[chg.doc.id];
@@ -2029,32 +2433,58 @@
                   const data = normalizeRoomFromRemote(chg.doc.data());
                   if (data && data.id) {
                     appState.rooms[data.id] = data;
+                    const myVault = getMyVaultCode();
+                    const myUid = getMyUid();
+                    if (
+                      myVault &&
+                      ((data.hostVaultCode === myVault && data.hostUid !== myUid) ||
+                        (data.blackVaultCode === myVault && data.blackUid !== myUid) ||
+                        (data.whiteVaultCode === myVault && data.whiteUid !== myUid) ||
+                        (data.studyControllerVaultCode === myVault && data.studyControllerUid !== myUid))
+                    ) {
+                      needsOwnershipHeal = true;
+                    }
                   }
                 }
               });
               recoverNicknameFromKnownData(getMyUid());
+              if (authUid && authUid !== getMyUid()) {
+                recoverNicknameFromKnownData(authUid);
+              }
+              if (needsOwnershipHeal) {
+                reclaimMatchingRolesAcrossRooms(getMyUid(), getMyNickname(), getMyVaultCode());
+              }
               saveLocalRooms();
               renderLobbyRooms();
               tryAutoJoinPendingRoom();
             },
-            () => {}
+            () => {
+              useFirebase = false;
+            }
           );
 
           if (appState.pendingAutoJoinRoom) {
             fetchAndJoinRemoteRoomByParam(appState.pendingAutoJoinRoom);
           }
 
-          db.collection('weiqi_lobby_chat').onSnapshot(
+          getCloudCollection('lobby_chat').onSnapshot(
             (snap) => {
               const list = [];
               snap.forEach((doc) => list.push(doc.data()));
               list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
               appState.lobbyChat = list.slice(-MAX_LOBBY_CHAT);
+              recoverNicknameFromKnownData(getMyUid());
               saveLocalLobbyChat();
               renderLobbyChat();
             },
             () => {}
           );
+        }
+
+        subscribeVaultRecords(getMyVaultCode());
+        subscribeVaultProfileStats(getMyVaultCode());
+        if (!isFreshlyGeneratedVaultCode || hasExplicitPersistedNickname) {
+          syncVaultProfileToCloud(getMyVaultCode(), getMyUid(), getMyNickname());
         }
 
         if (bc) {
@@ -2169,7 +2599,7 @@
 
         if (useFirebase && db) {
           const firestoreDoc = serializeRoomForFirestore(clean);
-          db.collection('weiqi_rooms').doc(state.id).set(firestoreDoc).catch(() => {});
+          getCloudCollection('rooms').doc(state.id).set(firestoreDoc).catch(() => {});
         }
       }
 
@@ -2191,6 +2621,9 @@
           }
           shouldPlayIncomingStone = !appState.spectatorLocalStudy;
         } else if (state.mode === 'match') {
+          if (state.status === 'finished' && state.result && !state.statsRecorded) {
+            settleFinishedMatchVaultStats();
+          }
           if (getMyRole() !== 'S') {
             appState.spectatorLocalMatch = null;
             shouldPlayIncomingStone = true;
@@ -2387,7 +2820,7 @@
         if (tryAutoJoinPendingRoom(target)) return true;
         if (!useFirebase || !db) return false;
 
-        const roomsCol = db.collection('weiqi_rooms');
+        const roomsCol = getCloudCollection('rooms');
         try {
           const doc = await roomsCol.doc(target).get();
           if (doc.exists) {
@@ -2465,16 +2898,6 @@
         return activeUids.size;
       }
 
-      function isMyOwnRoom(room) {
-        if (!room) return false;
-        const myUid = getMyUid();
-        const myCode = getMyVaultCode();
-        return (
-          room.hostUid === myUid ||
-          (myCode && room.hostVaultCode === myCode)
-        );
-      }
-
       function renderLobbyRooms() {
         const grid = document.getElementById('lobby-rooms-grid');
         const label = document.getElementById('lobby-rooms-count-label');
@@ -2516,7 +2939,7 @@
 
         grid.innerHTML = list.map((r) => {
           const isStudy = r.mode === 'study';
-          const isHost = isMyOwnRoom(r);
+          const isHost = isRoomHost(r);
           const isStale = now - (r.lastActivityAt || r.createdAt || now) > DAY_24_MS;
           const memberCount = getRoomOnlineCount(r);
           const moveCount = isStudy
@@ -2577,7 +3000,6 @@
         const msg = {
           id: generateId('lc'),
           uid: getMyUid(),
-          vaultCode: getMyVaultCode(),
           name: getMyNickname(),
           text,
           createdAt: Date.now()
@@ -2597,7 +3019,7 @@
         }
 
         if (useFirebase && db) {
-          const col = db.collection('weiqi_lobby_chat');
+          const col = getCloudCollection('lobby_chat');
           col.doc(msg.id).set(msg).catch(() => {});
           removedIds.forEach((oldId) => {
             col.doc(oldId).delete().catch(() => {});
@@ -2664,7 +3086,7 @@
           const seat = appState.createDraft.seat || 'B';
 
           const myUid = getMyUid();
-          const myCode = getMyVaultCode();
+          const myVault = getMyVaultCode();
           const myName = getMyNickname();
           const now = Date.now();
           const roomId = generateId('room');
@@ -2680,19 +3102,18 @@
             mode,
             boardSize,
             hostUid: myUid,
-            hostVaultCode: myCode,
+            hostVaultCode: myVault,
             hostName: myName,
             createdAt: now,
             updatedAt: now,
             lastActivityAt: now,
             activeMembers: { [myUid]: now },
             status: 'waiting',
-            statsRecorded: false,
             blackUid: mode === 'match' && seat === 'B' ? myUid : null,
-            blackVaultCode: mode === 'match' && seat === 'B' ? myCode : '',
+            blackVaultCode: mode === 'match' && seat === 'B' ? myVault : null,
             blackName: mode === 'match' && seat === 'B' ? myName : '',
             whiteUid: mode === 'match' && seat === 'W' ? myUid : null,
-            whiteVaultCode: mode === 'match' && seat === 'W' ? myCode : '',
+            whiteVaultCode: mode === 'match' && seat === 'W' ? myVault : null,
             whiteName: mode === 'match' && seat === 'W' ? myName : '',
             turn: 'B',
             board: initialBoard,
@@ -2710,8 +3131,9 @@
             lastTickAt: now,
             pendingRequest: null,
             result: null,
+            statsRecorded: false,
             studyControllerUid: mode === 'study' ? myUid : null,
-            studyControllerVaultCode: mode === 'study' ? myCode : '',
+            studyControllerVaultCode: mode === 'study' ? myVault : null,
             studyControllerName: mode === 'study' ? myName : '',
             activeBranchId: initialBranchId,
             studyBranches: {
@@ -2729,6 +3151,9 @@
           state = newRoom;
           localVersionTs = now;
           appState.pendingMove = null;
+          isFreshlyGeneratedVaultCode = false;
+          safeSetStorage(STORAGE_KEYS.VAULT_CODE, myVault, true);
+          syncVaultProfileToCloud(myVault, myUid, myName);
           persistCurrentRoomAndSync(true);
           closeAllModals();
           enterRoom(roomId);
@@ -2759,44 +3184,54 @@
         myRoomJoinedAt = Date.now();
         syncBrowserUrlWithRoom(state);
 
-        const myUid = getMyUid();
-        const myCode = getMyVaultCode();
-        const myName = getMyNickname();
-        let identitySynced = false;
+        if (state.mode === 'study') {
+          ensureStudyBranchesInitialized(false);
+          if (state.studyControllerUid === getMyUid() && state.studyControllerName !== getMyNickname()) {
+            state.studyControllerName = getMyNickname();
+            persistCurrentRoomAndSync(false);
+          }
+        }
 
-        if (isMyOwnRoom(state) && (state.hostUid !== myUid || state.hostName !== myName || state.hostVaultCode !== myCode)) {
-          state.hostUid = myUid;
-          state.hostVaultCode = myCode;
-          state.hostName = myName;
-          identitySynced = true;
+        const myUid = getMyUid();
+        const myVault = getMyVaultCode();
+        const myName = getMyNickname();
+        let ownerSynced = false;
+
+        if (isRoomHost(state)) {
+          if (state.hostUid !== myUid || state.hostVaultCode !== myVault || state.hostName !== myName) {
+            state.hostUid = myUid;
+            state.hostVaultCode = myVault;
+            state.hostName = myName;
+            ownerSynced = true;
+          }
         }
 
         if (state.mode === 'study') {
           ensureStudyBranchesInitialized(false);
-          if ((state.studyControllerUid === myUid || (myCode && state.studyControllerVaultCode === myCode)) &&
-              (state.studyControllerUid !== myUid || state.studyControllerName !== myName || state.studyControllerVaultCode !== myCode)) {
-            state.studyControllerUid = myUid;
-            state.studyControllerVaultCode = myCode;
-            state.studyControllerName = myName;
-            identitySynced = true;
+          if (isStudyPresenter()) {
+            if (state.studyControllerUid !== myUid || state.studyControllerVaultCode !== myVault || state.studyControllerName !== myName) {
+              state.studyControllerUid = myUid;
+              state.studyControllerVaultCode = myVault;
+              state.studyControllerName = myName;
+              ownerSynced = true;
+            }
           }
         } else if (state.mode === 'match') {
-          if ((state.blackUid === myUid || (myCode && state.blackVaultCode === myCode)) &&
-              (state.blackUid !== myUid || state.blackName !== myName || state.blackVaultCode !== myCode)) {
+          const role = getMyRole();
+          if (role === 'B' && (state.blackUid !== myUid || state.blackVaultCode !== myVault || state.blackName !== myName)) {
             state.blackUid = myUid;
-            state.blackVaultCode = myCode;
+            state.blackVaultCode = myVault;
             state.blackName = myName;
-            identitySynced = true;
+            ownerSynced = true;
           }
-          if ((state.whiteUid === myUid || (myCode && state.whiteVaultCode === myCode)) &&
-              (state.whiteUid !== myUid || state.whiteName !== myName || state.whiteVaultCode !== myCode)) {
+          if (role === 'W' && (state.whiteUid !== myUid || state.whiteVaultCode !== myVault || state.whiteName !== myName)) {
             state.whiteUid = myUid;
-            state.whiteVaultCode = myCode;
+            state.whiteVaultCode = myVault;
             state.whiteName = myName;
-            identitySynced = true;
+            ownerSynced = true;
           }
         }
-        if (identitySynced) persistCurrentRoomAndSync(false);
+        if (ownerSynced) persistCurrentRoomAndSync(false);
 
         document.getElementById('lobby-view')?.classList.add('hidden');
         document.getElementById('header-lobby-bar')?.classList.add('hidden');
@@ -2849,7 +3284,7 @@
 
       function handleDeleteCurrentRoom() {
         if (!state) return;
-        if (!isMyOwnRoom(state)) {
+        if (!isRoomHost(state)) {
           showToast('僅房主可刪除房間');
           return;
         }
@@ -2862,7 +3297,7 @@
 
       function deleteRoomById(roomId) {
         const target = appState.rooms[roomId];
-        if (!target || !isMyOwnRoom(target)) return;
+        if (!target || !isRoomHost(target)) return;
         delete appState.rooms[roomId];
         saveLocalRooms();
         if (bc) {
@@ -2870,7 +3305,7 @@
         }
 
         if (useFirebase && db) {
-          db.collection('weiqi_rooms').doc(roomId).delete().catch(() => {});
+          getCloudCollection('rooms').doc(roomId).delete().catch(() => {});
         }
 
         if (state && state.id === roomId) {
@@ -2898,7 +3333,7 @@
 
         if (useFirebase && db) {
           let hasSeenRemoteDoc = false;
-          roomUnsubscribe = db.collection('weiqi_rooms').doc(roomId).onSnapshot(
+          roomUnsubscribe = getCloudCollection('rooms').doc(roomId).onSnapshot(
             (doc) => {
               if (!doc.exists) {
                 if (hasSeenRemoteDoc) {
@@ -2912,7 +3347,7 @@
             () => {}
           );
 
-          roomChatUnsubscribe = db.collection('weiqi_room_messages').onSnapshot(
+          roomChatUnsubscribe = getCloudCollection('room_messages').onSnapshot(
             (snap) => {
               const msgs = [];
               snap.forEach((doc) => {
@@ -2925,7 +3360,7 @@
             () => {}
           );
 
-          roomMembersUnsubscribe = db.collection('weiqi_room_members').onSnapshot(
+          roomMembersUnsubscribe = getCloudCollection('room_members').onSnapshot(
             (snap) => {
               const membersMap = {};
               snap.forEach((doc) => {
@@ -2944,7 +3379,7 @@
         }
       }
 
-      // ==================== 6.5 房內在線成員列表（含即時勝敗次數）與心跳同步 ====================
+      // ==================== 6.5 房內在線成員列表與即時心跳同步 ====================
       function startRoomPresenceHeartbeat(roomId) {
         if (roomPresenceTimer) clearInterval(roomPresenceTimer);
         updateMyRoomPresence(roomId, true);
@@ -2983,9 +3418,9 @@
         }
 
         if (useFirebase && db) {
-          db.collection('weiqi_room_members').doc(`${roomId}_${myUid}`).delete().catch(() => {});
+          getCloudCollection('room_members').doc(`${roomId}_${myUid}`).delete().catch(() => {});
           if (typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) {
-            db.collection('weiqi_rooms')
+            getCloudCollection('rooms')
               .doc(roomId)
               .update({ [`activeMembers.${myUid}`]: firebase.firestore.FieldValue.delete() })
               .catch(() => {});
@@ -2996,12 +3431,12 @@
       function updateMyRoomPresence(roomId, syncCloud = true) {
         if (!roomId) return;
         const myUid = getMyUid();
-        const myCode = getMyVaultCode();
+        const myVault = getMyVaultCode();
         const now = Date.now();
         const entry = {
           roomId,
           uid: myUid,
-          vaultCode: myCode,
+          vaultCode: myVault,
           name: getMyNickname(),
           joinedAt: myRoomJoinedAt || now,
           lastSeenAt: now
@@ -3041,8 +3476,8 @@
         }
 
         if (syncCloud && useFirebase && db) {
-          db.collection('weiqi_room_members').doc(`${roomId}_${myUid}`).set(entry, { merge: true }).catch(() => {});
-          db.collection('weiqi_rooms')
+          getCloudCollection('room_members').doc(`${roomId}_${myUid}`).set(entry, { merge: true }).catch(() => {});
+          getCloudCollection('rooms')
             .doc(roomId)
             .set({ activeMembers: { [myUid]: now } }, { merge: true })
             .catch(() => {});
@@ -3065,7 +3500,6 @@
 
         const now = Date.now();
         const myUid = getMyUid();
-        const myCode = getMyVaultCode();
         const merged = {};
 
         Object.values(appState.roomMembers || {}).forEach((m) => {
@@ -3077,7 +3511,7 @@
         merged[myUid] = {
           roomId: state.id,
           uid: myUid,
-          vaultCode: myCode,
+          vaultCode: getMyVaultCode(),
           name: getMyNickname(),
           joinedAt: (merged[myUid] && merged[myUid].joinedAt) || myRoomJoinedAt || now,
           lastSeenAt: now
@@ -3095,18 +3529,21 @@
         } else if (state.mode === 'study') {
           if (state.studyControllerUid && merged[state.studyControllerUid]) {
             if (state.studyControllerName) merged[state.studyControllerUid].name = state.studyControllerName;
-            if (state.studyControllerVaultCode) merged[state.studyControllerUid].vaultCode = state.studyControllerVaultCode;
+            if (state.studyControllerVaultCode) merged[state.studyControllerVaultCode].vaultCode = state.studyControllerVaultCode;
           }
+        }
+        if (state.hostUid && merged[state.hostUid] && state.hostVaultCode && !merged[state.hostUid].vaultCode) {
+          merged[state.hostUid].vaultCode = state.hostVaultCode;
         }
 
         const getRolePriority = (m) => {
           if (state.mode === 'match') {
-            if (state.blackUid === m.uid) return 1;
-            if (state.whiteUid === m.uid) return 2;
+            if (state.blackUid === m.uid || (state.blackVaultCode && m.vaultCode === state.blackVaultCode)) return 1;
+            if (state.whiteUid === m.uid || (state.whiteVaultCode && m.vaultCode === state.whiteVaultCode)) return 2;
           } else if (state.mode === 'study') {
-            if (state.studyControllerUid === m.uid) return 1;
+            if (state.studyControllerUid === m.uid || (state.studyControllerVaultCode && m.vaultCode === state.studyControllerVaultCode)) return 1;
           }
-          if (state.hostUid === m.uid) return 3;
+          if (state.hostUid === m.uid || (state.hostVaultCode && m.vaultCode === state.hostVaultCode)) return 3;
           if (m.uid === myUid) return 4;
           return 5;
         };
@@ -3124,23 +3561,29 @@
 
         listEl.innerHTML = members.map((m) => {
           const isMe = m.uid === myUid;
-          const isHost = state.hostUid === m.uid || (m.vaultCode && state.hostVaultCode === m.vaultCode);
-          const mStats = m.vaultCode ? getVaultStats(m.vaultCode) : { wins: 0, losses: 0 };
+          const isHost = state.hostUid === m.uid || (state.hostVaultCode && m.vaultCode === state.hostVaultCode);
+          const resolvedVault = normalizeVaultCode(
+            m.vaultCode || (appState.cloudProfiles && appState.cloudProfiles[m.uid]?.vaultCode) || ''
+          );
+          const stats = resolvedVault ? getVaultStats(resolvedVault) : { wins: 0, losses: 0 };
+          const statsBadge = resolvedVault
+            ? `<span class="px-1.5 py-0.5 rounded bg-amber-100/80 border border-amber-200 text-[10px] font-bold text-amber-900 shrink-0">${stats.wins}勝 ${stats.losses}敗</span>`
+            : '';
           let roleBadge = '';
           let cardStyle = 'bg-white border-stone-200 text-stone-700';
 
           if (state.mode === 'match') {
-            if (state.blackUid === m.uid) {
+            if (state.blackUid === m.uid || (state.blackVaultCode && m.vaultCode === state.blackVaultCode)) {
               roleBadge = '<span class="px-1.5 py-0.5 rounded bg-stone-900 text-amber-300 text-[10px] font-bold shrink-0">● 執黑</span>';
               cardStyle = 'bg-amber-50/70 border-amber-300 text-stone-900';
-            } else if (state.whiteUid === m.uid) {
+            } else if (state.whiteUid === m.uid || (state.whiteVaultCode && m.vaultCode === state.whiteVaultCode)) {
               roleBadge = '<span class="px-1.5 py-0.5 rounded bg-stone-100 border border-stone-300 text-stone-800 text-[10px] font-bold shrink-0">○ 執白</span>';
               cardStyle = 'bg-stone-100/80 border-stone-300 text-stone-900';
             } else {
               roleBadge = '<span class="px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 text-[10px] font-semibold shrink-0">👀 觀戰</span>';
             }
           } else {
-            if (state.studyControllerUid === m.uid) {
+            if (state.studyControllerUid === m.uid || (state.studyControllerVaultCode && m.vaultCode === state.studyControllerVaultCode)) {
               roleBadge = '<span class="px-1.5 py-0.5 rounded bg-emerald-600 text-white text-[10px] font-bold shrink-0">🎙️ 主講</span>';
               cardStyle = 'bg-emerald-50/70 border-emerald-300 text-stone-900';
             } else {
@@ -3153,8 +3596,8 @@
               <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
               <span class="font-bold text-xs truncate max-w-[110px]">${escapeHtml(m.name || '棋友')}${isMe ? ' (我)' : ''}</span>
               ${isHost ? '<span title="房主" class="text-[11px] shrink-0">👑</span>' : ''}
+              ${statsBadge}
               ${roleBadge}
-              <span class="px-1.5 py-0.5 rounded bg-amber-100/90 text-amber-900 text-[10px] font-bold shrink-0">${mStats.wins}勝 ${mStats.losses}敗</span>
             </div>`;
         }).join('');
       }
@@ -3304,7 +3747,7 @@
         }
 
         if (useFirebase && db) {
-          db.collection('weiqi_room_messages').doc(msg.id).set(msg).catch(() => {});
+          getCloudCollection('room_messages').doc(msg.id).set(msg).catch(() => {});
         }
         closeAllModals();
         showToast(`📝 已送出「${branch.name} · 第 ${branch.cursor} 手」盤面註釋`);
@@ -3486,7 +3929,7 @@
         }
 
         if (useFirebase && db) {
-          db.collection('weiqi_room_messages').doc(msg.id).set(msg).catch(() => {});
+          getCloudCollection('room_messages').doc(msg.id).set(msg).catch(() => {});
         }
         showToast(`🎙️ 已送出「${boundCtx.branchName} · 第 ${boundCtx.cursor} 手」語音講解`);
       }
@@ -3518,7 +3961,7 @@
         }
 
         if (useFirebase && db) {
-          db.collection('weiqi_room_messages').doc(msg.id).set(msg).catch(() => {});
+          getCloudCollection('room_messages').doc(msg.id).set(msg).catch(() => {});
         }
       }
 
@@ -3630,7 +4073,7 @@
           try { bc.postMessage({ type: 'room_chat_updated', roomId: state.id }); } catch (e) {}
         }
         if (useFirebase && db) {
-          db.collection('weiqi_room_messages').doc(msg.id).set(msg).catch(() => {});
+          getCloudCollection('room_messages').doc(msg.id).set(msg).catch(() => {});
         }
       }
 
@@ -3638,9 +4081,9 @@
       function getMyRole() {
         if (!state) return 'S';
         const uid = getMyUid();
-        const code = getMyVaultCode();
-        if (state.blackUid === uid || (code && state.blackVaultCode === code)) return 'B';
-        if (state.whiteUid === uid || (code && state.whiteVaultCode === code)) return 'W';
+        const vault = getMyVaultCode();
+        if (state.blackUid === uid || (state.blackVaultCode && vault && state.blackVaultCode === vault)) return 'B';
+        if (state.whiteUid === uid || (state.whiteVaultCode && vault && state.whiteVaultCode === vault)) return 'W';
         return 'S';
       }
 
@@ -3651,35 +4094,37 @@
           return;
         }
         const uid = getMyUid();
-        const code = getMyVaultCode();
+        const vault = getMyVaultCode();
         const name = getMyNickname();
 
         if (useFirebase && db) {
-          const docRef = db.collection('weiqi_rooms').doc(state.id);
+          const docRef = getCloudCollection('rooms').doc(state.id);
           db.runTransaction(async (tx) => {
             const snap = await tx.get(docRef);
             if (!snap.exists) throw new Error('ROOM_MISSING');
             const data = snap.data();
             if (data.status === 'finished') throw new Error('FINISHED');
+            const isMyBlack = data.blackUid === uid || (data.blackVaultCode && vault && data.blackVaultCode === vault);
+            const isMyWhite = data.whiteUid === uid || (data.whiteVaultCode && vault && data.whiteVaultCode === vault);
             if (color === 'B') {
-              if (data.blackUid && data.blackUid !== uid && data.blackVaultCode !== code) throw new Error('TAKEN');
-              if (data.whiteUid === uid || (code && data.whiteVaultCode === code)) {
+              if (data.blackUid && !isMyBlack) throw new Error('TAKEN');
+              if (isMyWhite) {
                 data.whiteUid = null;
-                data.whiteVaultCode = '';
+                data.whiteVaultCode = null;
                 data.whiteName = '';
               }
               data.blackUid = uid;
-              data.blackVaultCode = code;
+              data.blackVaultCode = vault;
               data.blackName = name;
             } else if (color === 'W') {
-              if (data.whiteUid && data.whiteUid !== uid && data.whiteVaultCode !== code) throw new Error('TAKEN');
-              if (data.blackUid === uid || (code && data.blackVaultCode === code)) {
+              if (data.whiteUid && !isMyWhite) throw new Error('TAKEN');
+              if (isMyBlack) {
                 data.blackUid = null;
-                data.blackVaultCode = '';
+                data.blackVaultCode = null;
                 data.blackName = '';
               }
               data.whiteUid = uid;
-              data.whiteVaultCode = code;
+              data.whiteVaultCode = vault;
               data.whiteName = name;
             }
             const now = Date.now();
@@ -3693,6 +4138,7 @@
             return data;
           })
             .then((updated) => {
+              syncVaultProfileToCloud(vault, uid, name);
               applyIncomingRoomSnapshot(updated);
               postSystemRoomNotice(`${name} 搶先入座${color === 'B' ? '執黑' : '執白'}！`);
               if (updated.status === 'playing') {
@@ -3711,32 +4157,33 @@
           return;
         }
 
+        const curRole = getMyRole();
         if (color === 'B') {
-          if (state.blackUid && state.blackUid !== uid && state.blackVaultCode !== code) {
+          if (state.blackUid && curRole !== 'B') {
             showToast('黑方席位已被其他棋友搶先入座！');
             return;
           }
-          if (state.whiteUid === uid || (code && state.whiteVaultCode === code)) {
+          if (curRole === 'W') {
             state.whiteUid = null;
-            state.whiteVaultCode = '';
+            state.whiteVaultCode = null;
             state.whiteName = '';
           }
           state.blackUid = uid;
-          state.blackVaultCode = code;
+          state.blackVaultCode = vault;
           state.blackName = name;
           postSystemRoomNotice(`${name} 入座執黑`);
         } else if (color === 'W') {
-          if (state.whiteUid && state.whiteUid !== uid && state.whiteVaultCode !== code) {
+          if (state.whiteUid && curRole !== 'W') {
             showToast('白方席位已被其他棋友搶先入座！');
             return;
           }
-          if (state.blackUid === uid || (code && state.blackVaultCode === code)) {
+          if (curRole === 'B') {
             state.blackUid = null;
-            state.blackVaultCode = '';
+            state.blackVaultCode = null;
             state.blackName = '';
           }
           state.whiteUid = uid;
-          state.whiteVaultCode = code;
+          state.whiteVaultCode = vault;
           state.whiteName = name;
           postSystemRoomNotice(`${name} 入座執白`);
         }
@@ -3747,6 +4194,7 @@
           postSystemRoomNotice('黑白雙方皆已就座，對局正式開始！');
         }
 
+        syncVaultProfileToCloud(vault, uid, name);
         persistCurrentRoomAndSync(true);
         updateAllRoomUI();
       }
@@ -3757,17 +4205,16 @@
           showToast('對局進行中不可直接離座，請使用認輸或協議重開');
           return;
         }
-        const uid = getMyUid();
-        const code = getMyVaultCode();
-        if (color === 'B' && (state.blackUid === uid || (code && state.blackVaultCode === code))) {
+        const curRole = getMyRole();
+        if (color === 'B' && curRole === 'B') {
           state.blackUid = null;
-          state.blackVaultCode = '';
+          state.blackVaultCode = null;
           state.blackName = '';
           state.status = 'waiting';
           postSystemRoomNotice(`${getMyNickname()} 離開了黑方席位`);
-        } else if (color === 'W' && (state.whiteUid === uid || (code && state.whiteVaultCode === code))) {
+        } else if (color === 'W' && curRole === 'W') {
           state.whiteUid = null;
-          state.whiteVaultCode = '';
+          state.whiteVaultCode = null;
           state.whiteName = '';
           state.status = 'waiting';
           postSystemRoomNotice(`${getMyNickname()} 離開了白方席位`);
@@ -3907,7 +4354,7 @@
           winner: score.winner,
           reason: `雙方連續虛手數子：黑 ${score.blackArea} 子 vs 白 ${score.whiteArea} + 貼目 ${komi} = ${score.whiteTotal} 子，${score.winner === 'B' ? '黑勝' : '白勝'} ${score.margin} 子`
         };
-        recordMatchWinLossToVault(score.winner);
+        settleFinishedMatchVaultStats();
         postSystemRoomNotice(`終局結果：${state.result.reason}`);
         persistCurrentRoomAndSync(true);
         updateAllRoomUI();
@@ -3930,7 +4377,7 @@
             winner,
             reason: `${loserName}中盤認輸，${winner === 'B' ? '黑方' : '白方'}勝`
           };
-          recordMatchWinLossToVault(winner);
+          settleFinishedMatchVaultStats();
           postSystemRoomNotice(`終局結果：${state.result.reason}`);
           persistCurrentRoomAndSync(true);
           updateAllRoomUI();
@@ -4004,7 +4451,7 @@
       function requestOrExecuteNewMatch(mode = 'open_new') {
         if (!state || state.mode !== 'match') return;
         const role = getMyRole();
-        const isHost = isMyOwnRoom(state);
+        const isHost = isRoomHost(state);
 
         if (state.status !== 'finished' && role === 'S') {
           showToast('對局進行中，觀戰者不可開新局');
@@ -4048,32 +4495,34 @@
 
         if (seatPolicy === 'swap') {
           const oldB = state.blackUid;
-          const oldBCode = state.blackVaultCode || '';
+          const oldBVault = state.blackVaultCode || null;
           const oldBName = state.blackName;
           state.blackUid = state.whiteUid;
-          state.blackVaultCode = state.whiteVaultCode || '';
+          state.blackVaultCode = state.whiteVaultCode || null;
           state.blackName = state.whiteName;
           state.whiteUid = oldB;
-          state.whiteVaultCode = oldBCode;
+          state.whiteVaultCode = oldBVault;
           state.whiteName = oldBName;
           postSystemRoomNotice('雙方交換黑白，開啟新對局！');
         } else if (seatPolicy === 'open_new') {
           const hostUid = state.hostUid;
-          const hostCode = state.hostVaultCode || '';
-          if ((hostUid && state.blackUid === hostUid) || (hostCode && state.blackVaultCode === hostCode)) {
+          const hostVault = state.hostVaultCode;
+          const blackIsHost = (hostUid && state.blackUid === hostUid) || (hostVault && state.blackVaultCode === hostVault);
+          const whiteIsHost = (hostUid && state.whiteUid === hostUid) || (hostVault && state.whiteVaultCode === hostVault);
+          if (blackIsHost) {
             state.whiteUid = null;
-            state.whiteVaultCode = '';
+            state.whiteVaultCode = null;
             state.whiteName = '';
-          } else if ((hostUid && state.whiteUid === hostUid) || (hostCode && state.whiteVaultCode === hostCode)) {
+          } else if (whiteIsHost) {
             state.blackUid = null;
-            state.blackVaultCode = '';
+            state.blackVaultCode = null;
             state.blackName = '';
           } else {
             state.blackUid = null;
-            state.blackVaultCode = '';
+            state.blackVaultCode = null;
             state.blackName = '';
             state.whiteUid = null;
-            state.whiteVaultCode = '';
+            state.whiteVaultCode = null;
             state.whiteName = '';
           }
           postSystemRoomNotice('🆕 新棋局已開啟！非房主席位已開放，歡迎棋友點擊入座對弈（先搶先贏）！');
@@ -4211,11 +4660,12 @@
           }
           const live = getLiveClockState(col);
           if (live.inByo) {
-            el.textContent = live.byoLeft >= 60 ? formatSeconds(Math.ceil(live.byoLeft)) : `${Math.ceil(live.byoLeft)}秒`;
+            const byoSecCeil = Math.ceil(live.byoLeft);
+            el.textContent = byoSecCeil > 120 ? formatSeconds(byoSecCeil) : `${byoSecCeil}秒`;
             byoEl.textContent = `讀秒剩 ${live.periodsLeft} 次`;
           } else {
             el.textContent = formatSeconds(live.main);
-            byoEl.textContent = state.byoyomiSeconds ? `讀秒 ${formatByoyomiPeriodLabel(state.byoyomiSeconds)}×${state.byoyomiPeriods}` : '包乾制';
+            byoEl.textContent = state.byoyomiSeconds ? `讀秒 ${formatByoyomiShortLabel(state.byoyomiSeconds)}×${state.byoyomiPeriods}` : '包乾制';
           }
 
           if (live.expired && state.status === 'playing' && getMyRole() !== 'S') {
@@ -4225,7 +4675,7 @@
               winner,
               reason: `${col === 'B' ? '黑方' : '白方'}超時負，${winner === 'B' ? '黑方' : '白方'}勝`
             };
-            recordMatchWinLossToVault(winner);
+            settleFinishedMatchVaultStats();
             postSystemRoomNotice(`終局結果：${state.result.reason}`);
             persistCurrentRoomAndSync(true);
             updateAllRoomUI();
@@ -4506,11 +4956,11 @@
 
       function isStudyPresenter() {
         if (!state || state.mode !== 'study') return false;
-        const myCode = getMyVaultCode();
-        return (
-          state.studyControllerUid === getMyUid() ||
-          (myCode && state.studyControllerVaultCode === myCode)
-        );
+        const uid = getMyUid();
+        const vault = getMyVaultCode();
+        if (state.studyControllerUid === uid) return true;
+        if (state.studyControllerVaultCode && vault && state.studyControllerVaultCode === vault) return true;
+        return false;
       }
 
       function activateSpectatorLocalStudy(branchId = null, cursorOverride = null, customBranchObj = null) {
@@ -4633,7 +5083,7 @@
         }
         const oldName = getMyNickname();
         state.studyControllerUid = null;
-        state.studyControllerVaultCode = '';
+        state.studyControllerVaultCode = null;
         state.studyControllerName = '';
         postSystemRoomNotice(`🏳️ ${oldName} 已放棄擺盤權，現在其他棋友可點擊「接手擺盤」`);
         persistCurrentRoomAndSync(true);
@@ -4642,15 +5092,15 @@
 
       function takeOverStudyControl() {
         if (!state || state.mode !== 'study') return;
-        const myCode = getMyVaultCode();
-        if (state.studyControllerUid && state.studyControllerUid !== getMyUid() && state.studyControllerVaultCode !== myCode) {
+        if (state.studyControllerUid && !isStudyPresenter()) {
           showToast(`目前由「${state.studyControllerName || '主持人'}」主講中，需等其放棄擺盤權後才可接手`);
           return;
         }
         appState.spectatorLocalStudy = null;
         state.studyControllerUid = getMyUid();
-        state.studyControllerVaultCode = myCode;
+        state.studyControllerVaultCode = getMyVaultCode();
         state.studyControllerName = getMyNickname();
+        syncVaultProfileToCloud(state.studyControllerVaultCode, state.studyControllerUid, state.studyControllerName);
         postSystemRoomNotice(`🎙️ ${state.studyControllerName} 接手了擺盤主講權`);
         persistCurrentRoomAndSync(true);
         updateAllRoomUI();
@@ -4663,6 +5113,7 @@
           state.studyControllerUid = getMyUid();
           state.studyControllerVaultCode = getMyVaultCode();
           state.studyControllerName = getMyNickname();
+          syncVaultProfileToCloud(state.studyControllerVaultCode, state.studyControllerUid, state.studyControllerName);
           postSystemRoomNotice(`🎙️ ${state.studyControllerName} 接手了擺盤主講權`);
         } else if (!isStudyPresenter()) {
           handleSpectatorStudyBoardTap(x, y);
@@ -4990,7 +5441,7 @@
         }, '清空棋盤');
       }
 
-      // ==================== 10. SGF 產生、解析與「我的雲端棋譜」庫 ====================
+      // ==================== 10. SGF 產生、解析與「獨一雲端識別碼棋譜庫」 ====================
       function toSgfCoord(x, y) {
         if (x < 0 || y < 0) return '';
         return String.fromCharCode(97 + x) + String.fromCharCode(97 + y);
@@ -5140,66 +5591,146 @@
           : `${state.blackName || '黑方'} vs ${state.whiteName || '白方'}`;
         if (titleInput) titleInput.value = defaultName;
         if (preview) preview.value = sgf;
+        updateVaultAndCloudStatusUI();
         document.getElementById('save-sgf-modal')?.classList.remove('hidden');
       }
 
       function saveRecordToLibrary(title, sgf, boardSize) {
-        const myCode = getMyVaultCode();
-        if (!useFirebase || !db || !myCode) {
-          showToast('雲端連線尚未就緒，請稍後再試');
-          return false;
-        }
         const cleanTitle = String(title || '').trim() || `圍棋棋譜_${new Date().toLocaleDateString()}`;
         const parsed = parseSgfData(sgf);
         const firstBranch = Object.values(parsed.branches)[0];
         const moveCount = firstBranch ? firstBranch.moves.length : 0;
+        const vaultCode = getMyVaultCode();
 
         const rec = {
           id: generateId('rec'),
+          vaultCode,
           title: cleanTitle,
           boardSize: boardSize || parsed.boardSize || 19,
           moveCount,
           sgf,
           createdAt: Date.now()
         };
-        db.collection(`weiqi_vault_profiles/${myCode}/records`)
-          .doc(rec.id)
-          .set(rec)
-          .then(() => {
-            showToast(`☁️ 已成功存入專屬識別碼「${myCode}」雲端棋譜！`);
-          })
-          .catch(() => {
-            showToast('存入雲端失敗，請稍後重試');
-          });
+
+        const currentList = loadLocalVaultRecordsForCode(vaultCode);
+        currentList.unshift(rec);
+        saveLocalVaultRecordsForCode(vaultCode, currentList);
+        appState.records = currentList;
+        renderLobbyRecords();
+
+        if (useFirebase && db) {
+          getCloudCollection('vault_records')
+            .doc(rec.id)
+            .set(rec)
+            .then(() => {
+              syncVaultProfileToCloud(vaultCode, getMyUid(), getMyNickname());
+              showToast(`☁️ 已存入雲端識別碼「${vaultCode}」！`);
+            })
+            .catch(() => {
+              showToast('已暫存於本機（雲端同步稍後重試）');
+            });
+        } else {
+          showToast(`已存入棋譜庫（識別碼：${vaultCode}）`);
+        }
         return true;
       }
 
       function deleteCloudRecord(recId) {
-        const myCode = getMyVaultCode();
-        if (!useFirebase || !db || !myCode || !recId) return;
-        db.collection(`weiqi_vault_profiles/${myCode}/records`)
-          .doc(recId)
-          .delete()
-          .then(() => {
-            showToast('已從雲端刪除棋譜');
-          })
-          .catch(() => {
-            showToast('刪除失敗，請稍後重試');
+        if (!recId) return;
+        const vaultCode = getMyVaultCode();
+        const filtered = loadLocalVaultRecordsForCode(vaultCode).filter((r) => r.id !== recId);
+        saveLocalVaultRecordsForCode(vaultCode, filtered);
+        appState.records = filtered;
+        renderLobbyRecords();
+
+        if (useFirebase && db) {
+          getCloudCollection('vault_records')
+            .doc(recId)
+            .delete()
+            .then(() => {
+              showToast('已從雲端棋譜庫刪除');
+            })
+            .catch(() => {
+              showToast('雲端刪除失敗，請稍後重試');
+            });
+        } else {
+          showToast('已刪除棋譜');
+        }
+      }
+
+      function exportVaultRecordsBackup() {
+        const vaultCode = getMyVaultCode();
+        const list = appState.records || [];
+        if (!list.length) {
+          showToast('目前此識別碼尚無棋譜可匯出');
+          return;
+        }
+        const payload = {
+          app: 'CloudWeiqiPlatform',
+          version: 2,
+          vaultCode,
+          exportedAt: Date.now(),
+          records: list
+        };
+        const dateTag = new Date().toISOString().slice(0, 10);
+        downloadTextFile(`weiqi_backup_${vaultCode}_${dateTag}.json`, JSON.stringify(payload, null, 2));
+        showToast(`📦 已匯出 ${list.length} 份棋譜備份包！`);
+      }
+
+      function importVaultRecordsBackupFromJson(rawJsonText) {
+        try {
+          const parsed = JSON.parse(String(rawJsonText || ''));
+          const incomingList = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.records) ? parsed.records : [];
+          if (!incomingList.length) {
+            showToast('備份檔內未發現有效棋譜資料');
+            return;
+          }
+          const vaultCode = getMyVaultCode();
+          const existing = loadLocalVaultRecordsForCode(vaultCode);
+          const existingIds = new Set(existing.map((r) => r.id));
+          let addedCount = 0;
+
+          incomingList.forEach((item) => {
+            if (!item || !item.sgf) return;
+            const recId = item.id && !existingIds.has(item.id) ? item.id : generateId('rec');
+            existingIds.add(recId);
+            const rec = {
+              id: recId,
+              vaultCode,
+              title: String(item.title || '還原棋譜').slice(0, 48),
+              boardSize: Number(item.boardSize) || 19,
+              moveCount: Number(item.moveCount) || 0,
+              sgf: String(item.sgf),
+              createdAt: Number(item.createdAt) || Date.now()
+            };
+            existing.unshift(rec);
+            addedCount++;
+            if (useFirebase && db) {
+              getCloudCollection('vault_records').doc(rec.id).set(rec).catch(() => {});
+            }
           });
+
+          saveLocalVaultRecordsForCode(vaultCode, existing);
+          appState.records = existing;
+          renderLobbyRecords();
+          showToast(`📥 已成功還原 ${addedCount} 份棋譜至識別碼「${vaultCode}」！`);
+        } catch (e) {
+          showToast('備份檔格式無法辨識，請選擇正確的 .json 備份檔');
+        }
       }
 
       function renderLobbyRecords() {
         const grid = document.getElementById('lobby-records-grid');
         const label = document.getElementById('lobby-records-count-label');
         if (!grid) return;
-        updateAllVaultStatsUI();
+        updateVaultAndCloudStatusUI();
 
         const q = appState.searchQuery.trim().toLowerCase();
         const list = (appState.records || []).filter((r) => !q || (r.title || '').toLowerCase().includes(q));
-        if (label) label.textContent = `☁️ 雲端已保存 ${list.length} 份棋譜（不佔手機空間）`;
+        if (label) label.textContent = `☁️ 識別碼「${getMyVaultCode()}」已保存 ${list.length} 份棋譜`;
 
         if (!list.length) {
-          grid.innerHTML = `<div class="p-8 text-center rounded-2xl bg-white border border-dashed border-stone-300 text-stone-500 text-xs sm:text-sm">您的專屬雲端目前尚無棋譜，對弈或研究時點擊「💾 儲存棋譜」即可永久收藏！</div>`;
+          grid.innerHTML = `<div class="p-8 text-center rounded-2xl bg-white border border-dashed border-stone-300 text-stone-500 text-xs sm:text-sm">此雲端識別碼目前尚無棋譜，對弈或研究時點擊「💾 儲存棋譜」即可永久收藏；若在另一台裝置存過譜，請點擊上方「🔄 切換／自訂」輸入該識別碼！</div>`;
           return;
         }
 
@@ -5260,8 +5791,9 @@
       function renderLoadModalRecordsList() {
         const listEl = document.getElementById('load-modal-records-list');
         if (!listEl) return;
+        updateVaultAndCloudStatusUI();
         if (!appState.records.length) {
-          listEl.innerHTML = '<div class="text-center text-stone-400 py-3 text-xs">「我的雲端棋譜」目前為空</div>';
+          listEl.innerHTML = `<div class="text-center text-stone-400 py-3 text-xs">識別碼「${escapeHtml(getMyVaultCode())}」目前尚無棋譜</div>`;
           return;
         }
         listEl.innerHTML = appState.records.map((r) => `
@@ -5348,6 +5880,7 @@
         if (!ctx || !state) return;
         const { size, padding, cellSize, cssSize } = boardMetrics;
 
+        // 1. 溫潤傳統日本榧木（Kaya）底色漸層
         const grad = ctx.createLinearGradient(0, 0, cssSize, cssSize);
         grad.addColorStop(0, '#eab96b');
         grad.addColorStop(0.5, '#dfa852');
@@ -5355,6 +5888,7 @@
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, cssSize, cssSize);
 
+        // 2. 細緻縱向天然木紋
         ctx.save();
         for (let x = 2; x < cssSize; x += 3) {
           const wave = Math.sin(x * 0.045) * 0.5 + Math.cos(x * 0.13) * 0.5;
@@ -5365,6 +5899,7 @@
         }
         ctx.restore();
 
+        // 3. 四邊溫潤木框倒角與內高光
         ctx.strokeStyle = 'rgba(255, 240, 210, 0.35)';
         ctx.lineWidth = 2;
         ctx.strokeRect(1, 1, cssSize - 2, cssSize - 2);
@@ -5372,6 +5907,7 @@
         ctx.lineWidth = 2;
         ctx.strokeRect(0.5, 0.5, cssSize - 1, cssSize - 1);
 
+        // 4. 棋盤格線（外框加粗、內線俐落）
         ctx.strokeStyle = '#2d1a08';
         ctx.lineCap = 'square';
         for (let i = 0; i < size; i++) {
@@ -5391,6 +5927,7 @@
           ctx.stroke();
         }
 
+        // 5. 星位黑點
         const starCoords = getStarPoints(size);
         ctx.fillStyle = '#241405';
         const starR = Math.max(2.6, cellSize * 0.115);
@@ -5400,6 +5937,7 @@
           ctx.fill();
         }
 
+        // 6. 四周圍棋座標（A-T 跳過 I，數字 1-19）
         const fontSize = Math.max(9, Math.min(12, Math.floor(padding * 0.46)));
         ctx.fillStyle = '#4a2c10';
         ctx.font = `700 ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
@@ -5443,6 +5981,7 @@
 
         const showNum = isStudy ? true : appState.showMoveNumbers;
 
+        // 7. 立體黑白棋子繪製
         for (let y = 0; y < size; y++) {
           for (let x = 0; x < size; x++) {
             const val = board[y][x];
@@ -5496,6 +6035,7 @@
           }
         }
 
+        // 8. 最後一手標記（不遮擋手數）
         const lastMove = [...movesList].reverse().find((m) => !m.pass && m.x >= 0 && m.y >= 0);
         if (lastMove && board[lastMove.y] && board[lastMove.y][lastMove.x] !== 0) {
           const lx = padding + lastMove.x * cellSize;
@@ -5508,6 +6048,7 @@
           ctx.stroke();
         }
 
+        // 9. 雙人對弈預選落子半透明指示
         if (state.mode === 'match' && appState.pendingMove) {
           const { x, y } = appState.pendingMove;
           const px = padding + x * cellSize;
@@ -5616,7 +6157,7 @@
       function updateAllRoomUI() {
         if (!state) return;
         const isStudy = state.mode === 'study';
-        const isHost = isMyOwnRoom(state);
+        const isHost = isRoomHost(state);
 
         const metaEl = document.getElementById('header-room-meta');
         if (metaEl) metaEl.textContent = `${state.boardSize}路 · #${state.code || ''}`;
@@ -5854,7 +6395,6 @@
       function updateMatchPanelUI() {
         if (!state || state.mode !== 'match') return;
         const myUid = getMyUid();
-        const myCode = getMyVaultCode();
         const role = getMyRole();
 
         const reqBanner = document.getElementById('match-request-banner');
@@ -5879,19 +6419,39 @@
         if (bNameEl) bNameEl.textContent = state.blackName || '等待入座...';
         if (wNameEl) wNameEl.textContent = state.whiteName || '等待入座...';
         if (bRecEl) {
-          if (state.blackUid && state.blackVaultCode) {
-            const bs = getVaultStats(state.blackVaultCode);
-            bRecEl.textContent = `戰績：${bs.wins}勝 ${bs.losses}敗`;
+          const bCode = normalizeVaultCode(state.blackVaultCode);
+          if (state.blackUid && bCode) {
+            const bStats = getVaultStats(bCode);
+            bRecEl.textContent = `${bStats.wins}勝 ${bStats.losses}敗`;
+            bRecEl.classList.remove('hidden');
+            if (!appState.vaultProfiles[bCode] && useFirebase && db) {
+              getCloudCollection('vault_profiles').doc(bCode).get().then((d) => {
+                if (d.exists) {
+                  appState.vaultProfiles[bCode] = d.data();
+                  updateMatchPanelUI();
+                }
+              }).catch(() => {});
+            }
           } else {
-            bRecEl.textContent = '戰績：—';
+            bRecEl.classList.add('hidden');
           }
         }
         if (wRecEl) {
-          if (state.whiteUid && state.whiteVaultCode) {
-            const ws = getVaultStats(state.whiteVaultCode);
-            wRecEl.textContent = `戰績：${ws.wins}勝 ${ws.losses}敗`;
+          const wCode = normalizeVaultCode(state.whiteVaultCode);
+          if (state.whiteUid && wCode) {
+            const wStats = getVaultStats(wCode);
+            wRecEl.textContent = `${wStats.wins}勝 ${wStats.losses}敗`;
+            wRecEl.classList.remove('hidden');
+            if (!appState.vaultProfiles[wCode] && useFirebase && db) {
+              getCloudCollection('vault_profiles').doc(wCode).get().then((d) => {
+                if (d.exists) {
+                  appState.vaultProfiles[wCode] = d.data();
+                  updateMatchPanelUI();
+                }
+              }).catch(() => {});
+            }
           } else {
-            wRecEl.textContent = '戰績：—';
+            wRecEl.classList.add('hidden');
           }
         }
         if (bCapEl) bCapEl.textContent = `提 ${(state.captures && state.captures.B) || 0} 子`;
@@ -5910,13 +6470,11 @@
           joinW.classList.toggle('hidden', !!state.whiteUid || !canClaimSeats);
         }
         if (leaveB) {
-          const isMeB = state.blackUid === myUid || (myCode && state.blackVaultCode === myCode);
-          const showLeaveB = isMeB && state.status === 'waiting';
+          const showLeaveB = role === 'B' && state.status === 'waiting';
           leaveB.classList.toggle('hidden', !showLeaveB);
         }
         if (leaveW) {
-          const isMeW = state.whiteUid === myUid || (myCode && state.whiteVaultCode === myCode);
-          const showLeaveW = isMeW && state.status === 'waiting';
+          const showLeaveW = role === 'W' && state.status === 'waiting';
           leaveW.classList.toggle('hidden', !showLeaveW);
         }
 
@@ -6083,7 +6641,7 @@
         if (winEl) winEl.textContent = state.result.winner === 'B' ? '🏆 黑方勝利！' : '🏆 白方勝利！';
         if (detEl) detEl.textContent = state.result.reason || '';
 
-        const isHost = isMyOwnRoom(state);
+        const isHost = isRoomHost(state);
         const swapBtn = document.getElementById('gameover-swap-rematch-btn');
         const openNewBtn = document.getElementById('gameover-open-new-match-btn');
 
@@ -6093,17 +6651,12 @@
         document.getElementById('game-over-modal')?.classList.remove('hidden');
       }
 
-      function closeAllModals(e) {
-        if (e && typeof e.preventDefault === 'function') {
-          e.preventDefault();
-          e.stopPropagation();
-        }
+      function closeAllModals() {
         document.querySelectorAll('#create-room-modal, #nickname-modal, #save-sgf-modal, #load-sgf-modal, #game-over-modal, #custom-dialog-modal, #study-note-modal').forEach((m) => {
           m.classList.add('hidden');
         });
         activeDialogConfirmHandler = null;
       }
-      window.__closeAllModals = closeAllModals;
 
       function updateMobileRoomTabUI() {
         const ctrlPanel = document.getElementById('room-control-panel');
@@ -6136,18 +6689,16 @@
       // ==================== 13. 全域事件綁定 ====================
       function openNicknameSettingsModal() {
         const inp = document.getElementById('nickname-input');
-        const codeInp = document.getElementById('modal-vault-code-input');
-        const pinInp = document.getElementById('modal-vault-pin-input');
         if (inp) inp.value = getMyNickname();
-        if (codeInp) codeInp.value = getMyVaultCode();
-        if (pinInp) pinInp.value = getMyVaultPin();
-        updateAllVaultStatsUI();
+        const vInp = document.getElementById('modal-vault-code-input');
+        if (vInp) vInp.value = getMyVaultCode();
+        updateVaultAndCloudStatusUI();
         document.getElementById('nickname-modal')?.classList.remove('hidden');
       }
 
       function bindAllEvents() {
         setMyNickname(getMyNickname(), hasExplicitPersistedNickname);
-        updateAllVaultStatsUI();
+        updateVaultAndCloudStatusUI();
 
         document.getElementById('custom-dialog-form')?.addEventListener('submit', (e) => {
           e.preventDefault();
@@ -6165,66 +6716,74 @@
             confirmCreateRoom(e);
             return;
           }
-          if (e.target.closest('.close-modal-btn') || e.target.closest('#cancel-create-room-btn')) {
-            closeAllModals(e);
-            return;
-          }
-          if (e.target && e.target.id === 'create-room-modal') {
-            closeAllModals(e);
-          }
-        });
-
-        document.getElementById('cancel-create-room-btn')?.addEventListener('click', (e) => closeAllModals(e));
-
-        // 專屬雲端識別碼操作按鈕
-        document.getElementById('copy-vault-code-btn')?.addEventListener('click', () => {
-          const code = getMyVaultCode();
-          copyTextToClipboard(code, `已複製專屬識別碼：${code}`);
-        });
-        document.getElementById('modal-copy-vault-btn')?.addEventListener('click', () => {
-          const code = document.getElementById('modal-vault-code-input')?.value.trim() || getMyVaultCode();
-          copyTextToClipboard(code, `已複製專屬識別碼：${code}`);
-        });
-        document.getElementById('switch-vault-code-btn')?.addEventListener('click', openNicknameSettingsModal);
-        document.getElementById('modal-apply-vault-btn')?.addEventListener('click', async () => {
-          const rawCode = document.getElementById('modal-vault-code-input')?.value || '';
-          const rawPin = document.getElementById('modal-vault-pin-input')?.value || '';
-          const ok = await applyVaultCodeAndClaimIdentity(rawCode, rawPin);
-          if (ok) {
-            const inp = document.getElementById('nickname-input');
-            if (inp) inp.value = getMyNickname();
+          if (e.target.closest('.close-modal-btn')) {
+            closeAllModals();
           }
         });
 
         document.getElementById('edit-nickname-btn-lobby')?.addEventListener('click', openNicknameSettingsModal);
         document.getElementById('edit-nickname-btn-room')?.addEventListener('click', openNicknameSettingsModal);
-        document.getElementById('nickname-form')?.addEventListener('submit', async (e) => {
+        document.getElementById('modal-copy-vault-btn')?.addEventListener('click', () => {
+          const code = getMyVaultCode();
+          copyTextToClipboard(code, `已複製個人雲端識別碼：${code}`);
+        });
+        document.getElementById('modal-apply-vault-btn')?.addEventListener('click', async () => {
+          const vInp = document.getElementById('modal-vault-code-input');
+          const pInp = document.getElementById('modal-vault-pin-input');
+          const nickInp = document.getElementById('nickname-input');
+          const raw = vInp?.value || '';
+          const pin = pInp?.value || '';
+          const typedNick = String(nickInp?.value || '').trim().slice(0, 16);
+          if (typedNick && !isDefaultGuestNickname(typedNick)) {
+            setMyNickname(typedNick, true);
+          }
+          const ok = await setMyVaultCode(raw, true, true, pin);
+          if (ok) {
+            if (nickInp) nickInp.value = getMyNickname();
+            renderLobbyRooms();
+            if (state) updateAllRoomUI();
+            showToast(`🔐 已成功綁定帳號「${getMyVaultCode()}」與角色（${getMyNickname()}）！`);
+          }
+        });
+        document.getElementById('copy-vault-code-btn')?.addEventListener('click', () => {
+          const code = getMyVaultCode();
+          copyTextToClipboard(code, `已複製雲端棋譜識別碼：${code}`);
+        });
+        document.getElementById('switch-vault-code-btn')?.addEventListener('click', promptSwitchVaultCode);
+        document.getElementById('export-vault-backup-btn')?.addEventListener('click', exportVaultRecordsBackup);
+        document.getElementById('import-vault-backup-btn')?.addEventListener('click', () => {
+          document.getElementById('vault-backup-file-input')?.click();
+        });
+        document.getElementById('vault-backup-file-input')?.addEventListener('change', (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            if (reader.result) importVaultRecordsBackupFromJson(String(reader.result));
+          };
+          reader.readAsText(file);
+          e.target.value = '';
+        });
+
+        document.getElementById('nickname-form')?.addEventListener('submit', (e) => {
           e.preventDefault();
           const inp = document.getElementById('nickname-input');
-          const codeInp = document.getElementById('modal-vault-code-input');
-          const pinInp = document.getElementById('modal-vault-pin-input');
-          const desiredCode = normalizeVaultCode(codeInp?.value || '');
-          const desiredPin = String(pinInp?.value || '').trim();
-
-          if (desiredCode && (desiredCode !== getMyVaultCode() || desiredPin !== getMyVaultPin())) {
-            const ok = await applyVaultCodeAndClaimIdentity(desiredCode, desiredPin);
-            if (!ok) return;
-          }
-
           const updated = setMyNickname(inp?.value || '', true);
+          reclaimMatchingRolesAcrossRooms(getMyUid(), updated, getMyVaultCode());
           if (state) {
             const uid = getMyUid();
-            const code = getMyVaultCode();
-            if (state.hostUid === uid || (code && state.hostVaultCode === code)) state.hostName = updated;
-            if (state.blackUid === uid || (code && state.blackVaultCode === code)) state.blackName = updated;
-            if (state.whiteUid === uid || (code && state.whiteVaultCode === code)) state.whiteName = updated;
-            if (state.studyControllerUid === uid || (code && state.studyControllerVaultCode === code)) state.studyControllerName = updated;
+            const vault = getMyVaultCode();
+            const role = getMyRole();
+            if (isRoomHost(state)) { state.hostUid = uid; state.hostVaultCode = vault; state.hostName = updated; }
+            if (role === 'B') { state.blackUid = uid; state.blackVaultCode = vault; state.blackName = updated; }
+            if (role === 'W') { state.whiteUid = uid; state.whiteVaultCode = vault; state.whiteName = updated; }
+            if (isStudyPresenter()) { state.studyControllerUid = uid; state.studyControllerVaultCode = vault; state.studyControllerName = updated; }
             updateMyRoomPresence(state.id, true);
             persistCurrentRoomAndSync(false);
             updateAllRoomUI();
           }
           closeAllModals();
-          showToast(`已儲存設定（暱稱：${updated}）`);
+          showToast(`暱稱已更新為「${updated}」`);
         });
 
         document.getElementById('back-to-lobby-btn')?.addEventListener('click', leaveRoom);
@@ -6328,11 +6887,16 @@
         });
 
         document.getElementById('lobby-import-sgf-btn')?.addEventListener('click', () => {
-          openCustomPrompt('請貼上標準 SGF 棋譜字串：', '', (sgf) => {
-            if (sgf && sgf.trim()) {
-              saveRecordToLibrary(`匯入棋譜_${new Date().toLocaleDateString()}`, sgf.trim());
-            }
-          }, '匯入 SGF 棋譜至雲端');
+          openCustomPrompt(
+            `請貼上標準 SGF 棋譜字串（將存入雲端識別碼「${getMyVaultCode()}」）：`,
+            '',
+            (sgf) => {
+              if (sgf && sgf.trim()) {
+                saveRecordToLibrary(`匯入棋譜_${new Date().toLocaleDateString()}`, sgf.trim());
+              }
+            },
+            '匯入 SGF 棋譜至雲端'
+          );
         });
 
         document.getElementById('lobby-chat-form')?.addEventListener('submit', (e) => {
@@ -6629,31 +7193,35 @@
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
 
-      // 啟動應用程式
-      window.addEventListener('hashchange', () => {
-        const target = getPendingRoomParamFromUrl();
-        if (target && (!state || (state.id !== target && String(state.code) !== target))) {
-          appState.pendingAutoJoinRoom = target;
-          fetchAndJoinRemoteRoomByParam(target);
-        }
-      });
+      // 啟動應用程式（先完成全六層儲存還原，再初始化畫面與獨立雲端連線，杜絕身分覆蓋競態）
+      (async () => {
+        await hydrateStorageBeforeBoot();
 
-      appState.pendingAutoJoinRoom = getPendingRoomParamFromUrl();
-      if (appState.pendingAutoJoinRoom) {
-        showToast(`正在尋找並進入房間 #${appState.pendingAutoJoinRoom}...`, 3500);
-        setTimeout(() => {
-          if (appState.pendingAutoJoinRoom && !state) {
-            const missingCode = appState.pendingAutoJoinRoom;
-            appState.pendingAutoJoinRoom = '';
-            syncBrowserUrlWithRoom(null);
-            showToast(`找不到房間 #${missingCode}，可能已被房主刪除或輸入有誤`, 4000);
+        window.addEventListener('hashchange', () => {
+          const target = getPendingRoomParamFromUrl();
+          if (target && (!state || (state.id !== target && String(state.code) !== target))) {
+            appState.pendingAutoJoinRoom = target;
+            fetchAndJoinRemoteRoomByParam(target);
           }
-        }, 7500);
-      }
-      bindAllEvents();
-      initSyncBackend();
-      renderLobbyRooms();
-      renderLobbyChat();
+        });
+
+        appState.pendingAutoJoinRoom = getPendingRoomParamFromUrl();
+        if (appState.pendingAutoJoinRoom) {
+          showToast(`正在尋找並進入房間 #${appState.pendingAutoJoinRoom}...`, 3500);
+          setTimeout(() => {
+            if (appState.pendingAutoJoinRoom && !state) {
+              const missingCode = appState.pendingAutoJoinRoom;
+              appState.pendingAutoJoinRoom = '';
+              syncBrowserUrlWithRoom(null);
+              showToast(`找不到房間 #${missingCode}，可能已被房主刪除或輸入有誤`, 4000);
+            }
+          }, 7500);
+        }
+        bindAllEvents();
+        renderLobbyRooms();
+        renderLobbyChat();
+        await initSyncBackend();
+      })();
     })();
   </script>
 </body>
