@@ -3,14 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>雲端圍棋對弈與擺盤研究室</title>
+  <title>雲端圍棋對弈與研究室</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Firebase Compat SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-  <!-- PeerJS WebRTC App-to-App 直連引擎（進房後的即時聊天、語音講解、註釋與即時動態由 App 直接傳遞，不經過 Firebase） -->
-  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <style>
     :root {
       --board-bg: #d9a45b;
@@ -73,20 +71,19 @@
       <div class="flex items-center gap-2 min-w-0">
         <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-amber-500 text-stone-950 font-black text-sm shrink-0">棋</span>
         <span class="font-bold text-sm sm:text-base tracking-wide truncate">雲端圍棋對弈與研究室</span>
-        <button id="firebase-status-pill" type="button" title="點擊重新連線 Firebase 雲端資料庫" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-stone-800 border border-stone-700 text-[10px] sm:text-[11px] font-bold text-amber-300 shrink-0 transition">
-          <span id="firebase-status-dot" class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-          <span id="firebase-status-text">連線中</span>
-        </button>
+        <span id="firebase-status-badge" class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-stone-800 border border-stone-700 text-[11px] font-semibold text-amber-300 shrink-0">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+          <span>連線 Firebase 中...</span>
+        </span>
       </div>
       <div class="flex items-center gap-1.5 shrink-0">
-        <!-- 純圖示：我的對戰中房間（輪到自己落子時顯示綠色數字角標） -->
-        <button id="my-matches-btn-lobby" type="button" title="我的對戰中房間" aria-label="我的對戰中房間" class="relative inline-flex items-center justify-center w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 border border-stone-700 text-sm transition shrink-0">
+        <button id="my-matches-btn-lobby" type="button" title="我的對戰房間" aria-label="我的對戰房間" class="relative inline-flex items-center justify-center w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 active:bg-stone-600 border border-stone-700 text-sm transition shrink-0">
           <span>⚔️</span>
-          <span id="my-matches-badge-lobby" class="hidden absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-stone-950 font-mono font-black text-[10px] leading-4 text-center shadow-sm">0</span>
+          <span id="my-matches-badge-lobby" class="hidden absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-stone-950 font-black text-[10px] leading-none flex items-center justify-center shadow-xs">0</span>
         </button>
         <button id="edit-nickname-btn-lobby" type="button" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-stone-800 hover:bg-stone-700 border border-stone-700 text-xs sm:text-sm font-medium transition shrink-0">
           <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span class="header-nickname-text max-w-[96px] sm:max-w-[160px] truncate">棋友</span>
+          <span class="header-nickname-text max-w-[110px] sm:max-w-[160px] truncate">棋友</span>
           <span class="text-stone-400 text-xs">✎</span>
         </button>
       </div>
@@ -104,24 +101,22 @@
           <span id="header-room-meta" class="truncate">19路 · #000000</span>
           <span class="text-[11px] opacity-80 shrink-0">📋</span>
         </button>
-        <button id="copy-room-link-btn" type="button" title="複製房間超連結" class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-amber-600/90 hover:bg-amber-500 text-white text-xs font-bold shrink-0 transition">
+        <button id="copy-room-link-btn" type="button" title="複製房間超連結" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-600/90 hover:bg-amber-500 text-white text-xs font-bold shrink-0 transition">
           <span>🔗</span>
           <span class="hidden sm:inline">分享連結</span>
         </button>
       </div>
 
       <div class="flex items-center gap-1.5 shrink-0">
-        <!-- 純圖示：我的對戰中房間（輪到自己落子時顯示綠色數字角標） -->
-        <button id="my-matches-btn-room" type="button" title="我的對戰中房間" aria-label="我的對戰中房間" class="relative inline-flex items-center justify-center w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 border border-stone-700 text-sm transition shrink-0">
+        <button id="my-matches-btn-room" type="button" title="我的對戰房間" aria-label="我的對戰房間" class="relative inline-flex items-center justify-center w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 active:bg-stone-600 border border-stone-700 text-sm transition shrink-0">
           <span>⚔️</span>
-          <span id="my-matches-badge-room" class="hidden absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-stone-950 font-mono font-black text-[10px] leading-4 text-center shadow-sm">0</span>
+          <span id="my-matches-badge-room" class="hidden absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-emerald-500 text-stone-950 font-black text-[10px] leading-none flex items-center justify-center shadow-xs">0</span>
         </button>
-
         <button id="edit-nickname-btn-room" type="button" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-stone-800 hover:bg-stone-700 border border-stone-700 text-xs font-medium shrink-0 transition">
           <span id="header-role-dot" class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
           <span id="header-role-badge" class="text-[11px] font-bold text-emerald-300 shrink-0">旁觀</span>
           <span class="text-stone-600 text-[10px]">|</span>
-          <span class="header-nickname-text max-w-[60px] sm:max-w-[130px] truncate">棋友</span>
+          <span class="header-nickname-text max-w-[68px] sm:max-w-[130px] truncate">棋友</span>
           <span class="text-stone-400 text-[11px] shrink-0">✎</span>
         </button>
       </div>
@@ -130,13 +125,13 @@
 
   <!-- ==================== 遊戲大廳視圖 ==================== -->
   <main id="lobby-view" class="flex-1 max-w-6xl w-full mx-auto px-3 sm:px-5 py-4">
-    <!-- Firebase 連線異常提示橫幅 -->
-    <div id="firebase-error-banner" class="hidden mb-4 p-3 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 flex flex-wrap items-center justify-between gap-2 text-xs">
-      <div class="space-y-0.5 min-w-0 flex-1">
+    <!-- Firebase 連線異常提示橫幅（僅在連線失敗時顯示） -->
+    <div id="firebase-error-banner" class="hidden mb-3 p-3 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 text-xs sm:text-sm flex flex-wrap items-center justify-between gap-2">
+      <div class="space-y-0.5">
         <div class="font-bold">⚠️ Firebase 雲端資料庫連線異常</div>
-        <div id="firebase-error-detail" class="text-rose-700 break-words">無法連線至 Firebase，請檢查網路狀態或 Firebase 規則。</div>
+        <div id="firebase-error-detail" class="text-xs text-rose-700">請確認已透過 http/https 網站開啟，且 Firebase Firestore 安全規則與匿名登入已正確設定。</div>
       </div>
-      <button id="retry-firebase-btn" type="button" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold shrink-0 transition">🔄 重新連線</button>
+      <button id="retry-firebase-btn" type="button" class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shrink-0 transition">🔄 重新連線</button>
     </div>
 
     <!-- 頂部操作與篩選列 -->
@@ -149,11 +144,7 @@
       </div>
 
       <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
-        <button id="refresh-cloud-rooms-btn" type="button" title="從 Firebase 重新同步房間列表" class="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-white hover:bg-stone-100 border border-stone-300 text-stone-800 text-xs font-bold transition shrink-0">
-          <span>🔄</span>
-          <span class="hidden sm:inline">刷新雲端</span>
-        </button>
-        <a href="#lobby-chat-section" class="lg:hidden inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-800 text-xs font-bold transition shrink-0">
+        <a href="#lobby-chat-section" class="lg:hidden inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-800 text-xs font-bold transition">
           <span>💬 大廳聊天</span>
         </a>
         <button id="open-create-modal-btn" type="button" class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white text-xs sm:text-sm font-bold shadow-sm transition">
@@ -177,9 +168,12 @@
       <!-- 左側：房間列表與我的棋譜 -->
       <div class="lg:col-span-7 space-y-3">
         <div id="lobby-rooms-container">
-          <div class="flex items-center justify-between mb-2 px-1">
-            <span id="lobby-rooms-count-label" class="text-xs font-semibold text-stone-500">連線 Firebase 載入房間中...</span>
-            <span class="text-[11px] text-stone-400">24小時無活動自動隱藏（點右上 ⚔️ 可找回對戰）</span>
+          <div class="flex items-center justify-between gap-2 mb-2 px-1">
+            <span id="lobby-rooms-count-label" class="text-xs font-semibold text-stone-500">正在從 Firebase 載入房間...</span>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="hidden sm:inline text-[11px] text-stone-400">純雲端即時同步（無本地房間快取）</span>
+              <button id="refresh-rooms-btn" type="button" class="px-2 py-0.5 rounded-lg bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 text-[11px] font-bold transition">🔄 刷新雲端</button>
+            </div>
           </div>
           <div id="lobby-rooms-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
         </div>
@@ -199,7 +193,7 @@
               </div>
             </div>
             <div class="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-amber-200/70 text-[11px] text-amber-900/90">
-              <span>免登入跨手機／電腦同步收藏棋譜</span>
+              <span>免登入跨手機／電腦與所有升級版本永久同步</span>
               <div class="flex items-center gap-1.5">
                 <button id="export-vault-backup-btn" type="button" class="px-2 py-0.5 rounded bg-white hover:bg-amber-100 border border-amber-300 font-bold text-amber-900 transition">📦 匯出備份</button>
                 <button id="import-vault-backup-btn" type="button" class="px-2 py-0.5 rounded bg-white hover:bg-amber-100 border border-amber-300 font-bold text-amber-900 transition">📥 還原備份</button>
@@ -259,7 +253,7 @@
           <span id="turn-sub-hint" class="text-[11px] sm:text-xs text-stone-500 shrink-0">點擊交叉點落子</span>
         </div>
 
-        <!-- 手機／平板雙人對弈單排迷你計時 HUD（與原狀態列等高，不擠壓棋盤與下方按鈕） -->
+        <!-- 手機／平板雙人對弈單排迷你計時 HUD -->
         <div id="match-top-hud-bar" class="hidden w-full max-w-[700px] mx-auto mb-1.5 px-2 py-1 rounded-xl bg-white border border-stone-200 shadow-xs items-center justify-between gap-1.5 text-xs">
           <!-- 黑方計時膠囊 -->
           <div id="hud-black-pill" class="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-stone-100 text-stone-800 min-w-0 transition-colors">
@@ -582,12 +576,9 @@
         <!-- ==================== 房內即時聊天室與在線成員列表 ==================== -->
         <div id="room-chat-column" class="hidden lg:flex flex-col space-y-3">
           <section id="room-chat-panel" class="flex flex-col bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
-            <div class="px-3.5 py-2 bg-stone-100 border-b border-stone-200 flex items-center justify-between gap-2">
-              <div class="flex items-center gap-1.5 min-w-0">
-                <span class="font-bold text-xs text-stone-800 truncate">💬 房內即時聊天室</span>
-                <span id="room-p2p-status-pill" class="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold shrink-0">⚡ App 直傳就緒</span>
-              </div>
-              <button id="sync-room-history-btn" type="button" title="從 Firebase 補拉歷史訊息" class="px-2 py-0.5 rounded bg-white hover:bg-stone-200 border border-stone-300 text-[10px] font-bold text-stone-700 shrink-0 transition">🔄 同步歷史</button>
+            <div class="px-3.5 py-2 bg-stone-100 border-b border-stone-200 flex items-center justify-between">
+              <span class="font-bold text-xs text-stone-800">💬 房內即時聊天室</span>
+              <span class="text-[11px] text-stone-500">發言將保持房間活躍</span>
             </div>
 
             <div class="px-2.5 py-1.5 bg-stone-50 border-b border-stone-100 flex items-center gap-1.5 overflow-x-auto thin-scroll">
@@ -605,7 +596,7 @@
             </form>
           </section>
 
-          <!-- 房間內在線成員列表 -->
+          <!-- 房間內所有在線成員列表 -->
           <section id="room-members-panel" class="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
             <div class="px-3.5 py-2 bg-stone-100 border-b border-stone-200 flex items-center justify-between">
               <div class="flex items-center gap-1.5">
@@ -625,7 +616,7 @@
   <div id="create-room-modal" class="hidden fixed inset-0 z-50 bg-stone-950/60 overflow-y-auto flex items-start sm:items-center justify-center p-3">
     <div class="bg-white w-full max-w-md max-h-[92vh] rounded-2xl shadow-xl border border-stone-200 overflow-hidden flex flex-col my-auto">
       <div class="px-4 py-3 bg-stone-900 text-white flex items-center justify-between shrink-0">
-        <h3 class="font-bold text-sm sm:text-base">建立新房間（儲存至 Firebase）</h3>
+        <h3 class="font-bold text-sm sm:text-base">建立新房間（Firebase 雲端）</h3>
         <button type="button" class="close-modal-btn text-stone-400 hover:text-white text-lg font-bold px-1">✕</button>
       </div>
       <div class="p-4 space-y-3.5 text-xs sm:text-sm overflow-y-auto thin-scroll">
@@ -699,7 +690,7 @@
       </div>
       <div class="px-4 py-3 bg-stone-50 border-t border-stone-200 flex items-center justify-end gap-2 shrink-0 relative z-10">
         <button type="button" class="close-modal-btn px-4 py-2 rounded-xl bg-stone-200 hover:bg-stone-300 text-stone-700 font-bold text-xs">取消</button>
-        <button id="confirm-create-room-btn" type="button" class="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-xs shadow-sm cursor-pointer">立即建立</button>
+        <button id="confirm-create-room-btn" type="button" onclick="window.__confirmCreateRoom && window.__confirmCreateRoom(event)" class="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-xs shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">立即建立</button>
       </div>
     </div>
   </div>
@@ -720,9 +711,10 @@
         <!-- 專屬雲端識別碼 / 自訂代號 -->
         <div class="p-3 rounded-xl bg-amber-50/80 border border-amber-300 space-y-2">
           <div class="flex items-center justify-between gap-2">
-            <div class="text-xs font-bold text-amber-950">🔑 專屬雲端識別碼（跨裝置認領對戰與棋譜）</div>
+            <div class="text-xs font-bold text-amber-950">🔑 專屬雲端識別碼（跨裝置認領角色與棋譜）</div>
             <button id="modal-copy-vault-btn" type="button" class="px-2 py-0.5 rounded-md bg-white hover:bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-bold shrink-0 transition">📋 複製</button>
           </div>
+          <!-- 識別碼綁定戰績統計列 -->
           <div class="grid grid-cols-3 gap-1.5 p-2 rounded-lg bg-white border border-amber-200/90 text-center">
             <div>
               <div class="text-[10px] text-stone-500 font-semibold">🏆 勝次數</div>
@@ -738,14 +730,14 @@
             </div>
           </div>
           <p class="text-[11px] text-amber-900/90 leading-relaxed">
-            可輸入您習慣的<strong>專屬代號（或 Gmail 信箱）</strong>與選填 PIN 碼並套用；更換手機或電腦時輸入同一組識別碼，即可自動找回原暱稱、<strong>所有對戰中房間</strong>與雲端棋譜庫：
+            可直接輸入您習慣的<strong>專屬代號（或 Gmail 信箱）</strong>與選填 PIN 碼並套用；重開網頁或更換手機、電腦時輸入同一組識別碼，即可自動找回原暱稱、<strong>所有建立的房間管理權</strong>與雲端棋譜庫：
           </p>
           <div class="grid grid-cols-12 gap-1.5">
             <input id="modal-vault-code-input" type="text" maxlength="36" placeholder="輸入自訂代號或識別碼..." class="col-span-8 px-2.5 py-1.5 rounded-lg bg-white border border-stone-300 focus:border-amber-600 focus:outline-none font-mono font-bold text-xs text-stone-900" />
             <input id="modal-vault-pin-input" type="password" inputmode="numeric" maxlength="6" placeholder="PIN碼(選填)" class="col-span-4 px-2 py-1.5 rounded-lg bg-white border border-stone-300 focus:border-amber-600 focus:outline-none font-mono text-xs text-stone-900 text-center" />
           </div>
           <button id="modal-apply-vault-btn" type="button" class="w-full py-2 px-3 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-2xs transition">
-            ✓ 套用此識別碼並認領角色
+            切換角色
           </button>
         </div>
 
@@ -889,17 +881,18 @@
     </div>
   </div>
 
-  <!-- ==================== 彈窗 8：我的對戰中房間（慢棋快速切換清單） ==================== -->
+  <!-- ==================== 彈窗 8：我的對戰房間清單（慢棋多局快速切換） ==================== -->
   <div id="my-matches-modal" class="hidden fixed inset-0 z-50 bg-stone-950/60 overflow-y-auto flex items-start sm:items-center justify-center p-3">
     <div class="bg-white w-full max-w-md max-h-[88vh] rounded-2xl shadow-xl border border-stone-200 overflow-hidden flex flex-col my-auto">
       <div class="px-4 py-3 bg-stone-900 text-white flex items-center justify-between shrink-0">
-        <div class="flex items-center gap-2">
-          <h3 class="font-bold text-sm">⚔️ 我的對戰中房間</h3>
-          <span id="my-matches-modal-summary" class="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 font-bold text-[11px]">0 盤輪到您</span>
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="text-base">⚔️</span>
+          <h3 class="font-bold text-sm sm:text-base truncate">我的對戰房間</h3>
+          <span id="my-matches-modal-summary" class="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-[11px] font-bold shrink-0">0 盤待落子</span>
         </div>
         <button type="button" class="close-modal-btn text-stone-400 hover:text-white text-lg font-bold px-1">✕</button>
       </div>
-      <div id="my-matches-list" class="p-3 overflow-y-auto thin-scroll space-y-2 text-xs sm:text-sm bg-stone-50/60"></div>
+      <div id="my-matches-list" class="p-3.5 overflow-y-auto thin-scroll space-y-2.5 bg-stone-50/60 flex-1"></div>
     </div>
   </div>
 
@@ -910,7 +903,7 @@
     (() => {
       'use strict';
 
-      // ==================== 0. 獨立雲端 Firebase 預設連線設定 ====================
+      // ==================== 0. 獨立雲端 Firebase 預設連線設定（跨所有版本永久通用） ====================
       const DEFAULT_EXTERNAL_FIREBASE_CONFIG = {
         apiKey: "AIzaSyC213Jd7mA5ViTnwkAH0Pm_-dCnjZPyXms",
         authDomain: "my-go-a276e.firebaseapp.com",
@@ -921,20 +914,22 @@
         measurementId: "G-4XW285PRPM"
       };
 
-      // ==================== 1. 個人身分、雲端識別碼與安全儲存（僅保存個人偏好，不保存永久訊息快取） ====================
+      // ==================== 1. 個人身分、雲端識別碼與安全儲存（僅存個人設定，不快取房間） ====================
       const STORAGE_KEYS = {
         UID: 'weiqi_uid_v2',
         NICKNAME: 'weiqi_nickname_v2',
         IDENTITY: 'weiqi_identity_bundle_v2',
         VAULT_CODE: 'weiqi_vault_code_v1',
         VAULT_STATS: 'weiqi_vault_stats_v1',
+        LOCAL_VAULT_RECORDS: 'weiqi_local_vault_records_v1',
         PUBLIC_BASE_URL: 'weiqi_public_base_url_v1'
       };
 
       const DAY_24_MS = 24 * 60 * 60 * 1000;
       const MAX_LOBBY_CHAT = 300;
       const COLS_STR = 'ABCDEFGHJKLMNOPQRST'; // 圍棋座標跳過 I
-      const MEMBER_STALE_MS = 120000;
+      const MEMBER_HEARTBEAT_MS = 15000;
+      const MEMBER_STALE_MS = 45000;
 
       const memoryStorage = {};
       const WINDOW_NAME_PREFIX = '__WEIQI_STATE_V2__:';
@@ -943,10 +938,11 @@
       let hasExplicitPersistedNickname = false;
       let isFreshlyGeneratedUid = false;
       let isFreshlyGeneratedVaultCode = false;
+      let needsCloudRegisterNewCharacter = false;
       let fallbackSessionNickname = '';
 
-      // 舊版本地房間與永久訊息快取鍵值（啟動時主動清除，不在本地保存永久訊息）
-      const LEGACY_ROOM_CACHE_KEYS = ['weiqi_rooms_v2', 'weiqi_lobby_chat_v2', 'weiqi_local_vault_records_v1'];
+      // 舊版本地房間快取鍵值（啟動時主動清除，確保完全不使用本地房間快取）
+      const LEGACY_ROOM_CACHE_KEYS = ['weiqi_rooms_v2', 'weiqi_lobby_chat_v2'];
 
       function purgeLegacyRoomCaches() {
         LEGACY_ROOM_CACHE_KEYS.forEach((k) => {
@@ -955,20 +951,24 @@
           deleteFromIndexedDb(k);
         });
         try {
-          for (let i = window.localStorage.length - 1; i >= 0; i--) {
+          const toDelLocal = [];
+          for (let i = 0; i < window.localStorage.length; i++) {
             const key = window.localStorage.key(i);
-            if (key && (key.startsWith('weiqi_room_chat_') || key.startsWith('weiqi_room_members_'))) {
-              window.localStorage.removeItem(key);
+            if (key && (key.startsWith('weiqi_room_chat_') || key.startsWith('weiqi_room_members_') || key.startsWith('weiqi_rooms'))) {
+              toDelLocal.push(key);
             }
           }
+          toDelLocal.forEach((k) => window.localStorage.removeItem(k));
         } catch (e) {}
         try {
-          for (let i = window.sessionStorage.length - 1; i >= 0; i--) {
+          const toDelSess = [];
+          for (let i = 0; i < window.sessionStorage.length; i++) {
             const key = window.sessionStorage.key(i);
-            if (key && (key.startsWith('weiqi_room_chat_') || key.startsWith('weiqi_room_members_'))) {
-              window.sessionStorage.removeItem(key);
+            if (key && (key.startsWith('weiqi_room_chat_') || key.startsWith('weiqi_room_members_') || key.startsWith('weiqi_rooms'))) {
+              toDelSess.push(key);
             }
           }
+          toDelSess.forEach((k) => window.sessionStorage.removeItem(k));
         } catch (e) {}
       }
 
@@ -1066,6 +1066,7 @@
                 STORAGE_KEYS.IDENTITY,
                 STORAGE_KEYS.VAULT_CODE,
                 STORAGE_KEYS.VAULT_STATS,
+                STORAGE_KEYS.LOCAL_VAULT_RECORDS,
                 STORAGE_KEYS.PUBLIC_BASE_URL
               ];
               const result = {};
@@ -1180,6 +1181,16 @@
         return `WQ-${num}-${w}`;
       }
 
+      function generateNewGuestNickname(excludeName = '') {
+        let candidate = '';
+        for (let i = 0; i < 10; i++) {
+          const suffix = Math.floor(1000 + Math.random() * 9000);
+          candidate = `棋友_${suffix}`;
+          if (candidate !== excludeName) break;
+        }
+        return candidate;
+      }
+
       function deriveDeterministicAccountUid(vaultCode, pin = '') {
         const seed = `weiqi_acct_v1:${vaultCode}:${pin || ''}`;
         return `acct_${simpleStableHash(seed)}_${simpleStableHash(seed + '_salt')}`;
@@ -1198,7 +1209,9 @@
         return fresh;
       }
 
-      // ==================== 識別碼戰績（勝次數、敗次數）管理與按需雲端同步 ====================
+      // ==================== 識別碼戰績（勝次數、敗次數）管理與雲端同步 ====================
+      let vaultProfileUnsubscribe = null;
+
       function getLocalVaultStatsMap() {
         try {
           const raw = safeGetStorage(STORAGE_KEYS.VAULT_STATS);
@@ -1239,32 +1252,37 @@
         return { wins, losses };
       }
 
-      async function fetchVaultProfileOnce(vaultCode) {
+      function subscribeVaultProfileStats(vaultCode) {
         const code = normalizeVaultCode(vaultCode || getMyVaultCode());
+        if (vaultProfileUnsubscribe) {
+          vaultProfileUnsubscribe();
+          vaultProfileUnsubscribe = null;
+        }
         updateVaultAndCloudStatusUI();
-        if (!useFirebase || !code) return null;
-        try {
-          const d = await cloudGetDoc('vault_profiles', code);
-          if (!d) return null;
-          const wins = Math.max(0, Math.floor(Number(d.wins) || 0));
-          const losses = Math.max(0, Math.floor(Number(d.losses) || 0));
-          appState.vaultProfiles[code] = {
-            ...(appState.vaultProfiles[code] || {}),
-            ...d,
-            wins,
-            losses
-          };
-          if (code === getMyVaultCode()) {
+        if (!useFirebase || !code) return;
+
+        vaultProfileUnsubscribe = cloudSubscribeDoc(
+          'vault_profiles',
+          code,
+          (d) => {
+            if (!d) return;
+            const wins = Math.max(0, Math.floor(Number(d.wins) || 0));
+            const losses = Math.max(0, Math.floor(Number(d.losses) || 0));
+            appState.vaultProfiles[code] = {
+              ...(appState.vaultProfiles[code] || {}),
+              ...d,
+              wins,
+              losses
+            };
             saveLocalVaultStatsForCode(code, wins, losses);
             updateVaultAndCloudStatusUI();
-          }
-          if (state && state.mode === 'match') {
-            updateMatchPanelUI();
-          }
-          return appState.vaultProfiles[code];
-        } catch (e) {
-          return null;
-        }
+            if (state && state.mode === 'match') {
+              updateMatchPanelUI();
+            }
+          },
+          () => {},
+          4000
+        );
       }
 
       async function recordVaultMatchOutcome(vaultCode, isWin, fallbackName = '') {
@@ -1283,37 +1301,27 @@
           updatedAt: Date.now()
         };
 
-        if (useFirebase) {
+        if (useFirebase && db) {
+          const docRef = getCloudCollection('vault_profiles').doc(code);
           try {
-            if (firebaseTransport === 'sdk' && db) {
-              const docRef = getCloudCollection('vault_profiles').doc(code);
-              await db.runTransaction(async (tx) => {
-                const snap = await tx.get(docRef);
-                const existing = snap.exists ? snap.data() || {} : {};
-                const baseWins = Math.max(0, Math.floor(Number(existing.wins) || 0));
-                const baseLosses = Math.max(0, Math.floor(Number(existing.losses) || 0));
-                const payload = {
-                  vaultCode: code,
-                  wins: baseWins + (isWin ? 1 : 0),
-                  losses: baseLosses + (isWin ? 0 : 1),
-                  updatedAt: Date.now()
-                };
-                if (!existing.nickname && fallbackName) payload.nickname = fallbackName;
-                tx.set(docRef, payload, { merge: true });
-              });
-            } else {
-              const existing = (await cloudGetDoc('vault_profiles', code)) || {};
+            await db.runTransaction(async (tx) => {
+              const snap = await tx.get(docRef);
+              const existing = snap.exists ? snap.data() || {} : {};
               const baseWins = Math.max(0, Math.floor(Number(existing.wins) || 0));
               const baseLosses = Math.max(0, Math.floor(Number(existing.losses) || 0));
+              const updatedWins = baseWins + (isWin ? 1 : 0);
+              const updatedLosses = baseLosses + (isWin ? 0 : 1);
               const payload = {
                 vaultCode: code,
-                wins: baseWins + (isWin ? 1 : 0),
-                losses: baseLosses + (isWin ? 0 : 1),
+                wins: updatedWins,
+                losses: updatedLosses,
                 updatedAt: Date.now()
               };
-              if (!existing.nickname && fallbackName) payload.nickname = fallbackName;
-              await cloudSetDoc('vault_profiles', code, payload, { merge: true });
-            }
+              if (!existing.nickname && fallbackName) {
+                payload.nickname = fallbackName;
+              }
+              tx.set(docRef, payload, { merge: true });
+            });
           } catch (e) {}
         }
         updateVaultAndCloudStatusUI();
@@ -1390,8 +1398,7 @@
 
           const matchHost =
             (myVault && r.hostVaultCode === myVault) ||
-            (r.hostUid === myUid) ||
-            (canMatchByNick && r.hostName === myNick);
+            (r.hostUid === myUid);
           if (matchHost) {
             if (r.hostUid !== myUid) { r.hostUid = myUid; changed = true; }
             if (myVault && r.hostVaultCode !== myVault) { r.hostVaultCode = myVault; changed = true; }
@@ -1400,8 +1407,7 @@
 
           const matchBlack =
             (myVault && r.blackVaultCode === myVault) ||
-            (r.blackUid === myUid) ||
-            (canMatchByNick && r.blackName === myNick);
+            (r.blackUid === myUid);
           if (matchBlack) {
             if (r.blackUid !== myUid) { r.blackUid = myUid; changed = true; }
             if (myVault && r.blackVaultCode !== myVault) { r.blackVaultCode = myVault; changed = true; }
@@ -1410,8 +1416,7 @@
 
           const matchWhite =
             (myVault && r.whiteVaultCode === myVault) ||
-            (r.whiteUid === myUid) ||
-            (canMatchByNick && r.whiteName === myNick);
+            (r.whiteUid === myUid);
           if (matchWhite) {
             if (r.whiteUid !== myUid) { r.whiteUid = myUid; changed = true; }
             if (myVault && r.whiteVaultCode !== myVault) { r.whiteVaultCode = myVault; changed = true; }
@@ -1420,8 +1425,7 @@
 
           const matchPresenter =
             (myVault && r.studyControllerVaultCode === myVault) ||
-            (r.studyControllerUid === myUid) ||
-            (canMatchByNick && r.studyControllerName === myNick);
+            (r.studyControllerUid === myUid);
           if (matchPresenter) {
             if (r.studyControllerUid !== myUid) { r.studyControllerUid = myUid; changed = true; }
             if (myVault && r.studyControllerVaultCode !== myVault) { r.studyControllerVaultCode = myVault; changed = true; }
@@ -1442,12 +1446,171 @@
 
         if (state && syncSingleRoomOwnership(state)) {
           reclaimedCount++;
-          updateMyRoomPresence(state.id);
+          updateMyRoomPresence(state.id, true);
           persistCurrentRoomAndSync(false);
           updateAllRoomUI();
         }
-        updateMyMatchesBadge();
         return reclaimedCount;
+      }
+
+      async function checkVaultCodeExistsInCloud(normCode) {
+        if (!normCode) return { exists: false, profile: null };
+
+        if (appState.vaultProfiles && appState.vaultProfiles[normCode]) {
+          return { exists: true, profile: appState.vaultProfiles[normCode] };
+        }
+
+        if (useFirebase) {
+          try {
+            const prof = await cloudGetDoc('vault_profiles', normCode);
+            if (prof) {
+              appState.vaultProfiles[normCode] = prof;
+              return { exists: true, profile: prof };
+            }
+          } catch (e) {}
+
+          try {
+            const recs = await cloudListDocs('vault_records', 200);
+            const matchedRec = recs.find((r) => r && normalizeVaultCode(r.vaultCode) === normCode);
+            if (matchedRec) {
+              return { exists: true, profile: null };
+            }
+          } catch (e) {}
+
+          try {
+            const rooms = await cloudListDocs('rooms', 200);
+            for (const r of rooms) {
+              if (!r || r.deleted) continue;
+              if (
+                normalizeVaultCode(r.hostVaultCode) === normCode ||
+                normalizeVaultCode(r.blackVaultCode) === normCode ||
+                normalizeVaultCode(r.whiteVaultCode) === normCode ||
+                normalizeVaultCode(r.studyControllerVaultCode) === normCode
+              ) {
+                const matchedName =
+                  (normalizeVaultCode(r.hostVaultCode) === normCode && r.hostName) ||
+                  (normalizeVaultCode(r.blackVaultCode) === normCode && r.blackName) ||
+                  (normalizeVaultCode(r.whiteVaultCode) === normCode && r.whiteName) ||
+                  (normalizeVaultCode(r.studyControllerVaultCode) === normCode && r.studyControllerName) ||
+                  '';
+                const matchedUid =
+                  (normalizeVaultCode(r.hostVaultCode) === normCode && r.hostUid) ||
+                  (normalizeVaultCode(r.blackVaultCode) === normCode && r.blackUid) ||
+                  (normalizeVaultCode(r.whiteVaultCode) === normCode && r.whiteUid) ||
+                  (normalizeVaultCode(r.studyControllerVaultCode) === normCode && r.studyControllerUid) ||
+                  '';
+                return {
+                  exists: true,
+                  profile: matchedName || matchedUid ? { vaultCode: normCode, uid: matchedUid, nickname: matchedName } : null
+                };
+              }
+            }
+          } catch (e) {}
+        }
+
+        const localStats = getLocalVaultStatsMap()[normCode];
+        const localRecs = loadLocalVaultRecordsForCode(normCode);
+        if (localStats || (localRecs && localRecs.length > 0)) {
+          return { exists: true, profile: null };
+        }
+
+        return { exists: false, profile: null };
+      }
+
+      async function switchCharacterByVaultCode(rawCode, rawPin = '') {
+        const norm = normalizeVaultCode(rawCode);
+        if (!norm) {
+          showToast('識別碼格式不符（請輸入 2～36 碼英數字、代號或信箱）');
+          return false;
+        }
+
+        if (!useFirebase) {
+          showToast('⚠️ Firebase 尚未連線，無法驗證雲端識別碼');
+          return false;
+        }
+
+        const pin = String(rawPin || '').trim();
+        const enteredPinHash = pin ? simpleStableHash(`${norm}#${pin}`) : '';
+        const { exists, profile: cloudProf } = await checkVaultCodeExistsInCloud(norm);
+
+        if (exists) {
+          // 識別碼存在：切換為該角色
+          if (cloudProf && cloudProf.pinHash) {
+            if (!enteredPinHash || cloudProf.pinHash !== enteredPinHash) {
+              showToast('🔒 此角色識別碼設有安全 PIN 碼，請在右側輸入正確 PIN 碼！', 3600);
+              return false;
+            }
+          }
+
+          const targetUid = (cloudProf && cloudProf.uid) || deriveDeterministicAccountUid(norm, pin);
+          const targetNick = (cloudProf && cloudProf.nickname) || getMyNickname();
+
+          isFreshlyGeneratedVaultCode = false;
+          hasExplicitPersistedUid = true;
+          hasExplicitPersistedNickname = true;
+          safeSetStorage(STORAGE_KEYS.VAULT_CODE, norm, true);
+          safeSetStorage(STORAGE_KEYS.UID, targetUid, true);
+          safeSetStorage(STORAGE_KEYS.NICKNAME, targetNick, true);
+          persistIdentityBundle(targetUid, targetNick, true);
+          setMyNickname(targetNick, true);
+          updateVaultAndCloudStatusUI();
+
+          reclaimMatchingRolesAcrossRooms(targetUid, targetNick, norm);
+          syncVaultProfileToCloud(norm, targetUid, targetNick, cloudProf?.pinHash || enteredPinHash || '');
+
+          try {
+            const docs = await cloudListDocs('rooms', 200);
+            let anyCloudUpdated = false;
+            docs.forEach((rawDoc) => {
+              const rData = normalizeRoomFromRemote(rawDoc);
+              if (rData && rData.id && !rData.deleted) {
+                appState.rooms[rData.id] = rData;
+                anyCloudUpdated = true;
+              }
+            });
+            if (anyCloudUpdated) {
+              reclaimMatchingRolesAcrossRooms(targetUid, targetNick, norm);
+              renderLobbyRooms();
+            }
+          } catch (e) {}
+
+          subscribeVaultRecords(norm);
+          subscribeVaultProfileStats(norm);
+          renderLobbyRooms();
+          if (state) {
+            updateMyRoomPresence(state.id, true);
+            updateAllRoomUI();
+          }
+          showToast(`✅ 已切換為角色「${targetNick}」（識別碼：${norm}）`);
+          return true;
+        } else {
+          // 識別碼不存在：由系統指定一個新的角色與新的暱稱
+          const prevNick = getMyNickname();
+          const freshUid = generateId('u');
+          const freshVault = generateVaultCode();
+          const freshNick = generateNewGuestNickname(prevNick);
+
+          isFreshlyGeneratedVaultCode = false;
+          hasExplicitPersistedUid = true;
+          hasExplicitPersistedNickname = true;
+          safeSetStorage(STORAGE_KEYS.VAULT_CODE, freshVault, true);
+          safeSetStorage(STORAGE_KEYS.UID, freshUid, true);
+          safeSetStorage(STORAGE_KEYS.NICKNAME, freshNick, true);
+          persistIdentityBundle(freshUid, freshNick, true);
+          setMyNickname(freshNick, true);
+          updateVaultAndCloudStatusUI();
+
+          syncVaultProfileToCloud(freshVault, freshUid, freshNick);
+          subscribeVaultRecords(freshVault);
+          subscribeVaultProfileStats(freshVault);
+          renderLobbyRooms();
+          if (state) {
+            updateMyRoomPresence(state.id, true);
+            updateAllRoomUI();
+          }
+          showToast(`🆕 識別碼「${norm}」不存在，已為您指定新角色「${freshNick}」（${freshVault}）！`, 3600);
+          return true;
+        }
       }
 
       async function setMyVaultCode(rawCode, shouldResubscribe = true, restoreIdentityFromCloud = true, rawPin = '') {
@@ -1494,15 +1657,27 @@
 
         if (useFirebase) {
           syncVaultProfileToCloud(norm, getMyUid(), effectiveNick, cloudProf?.pinHash || enteredPinHash || '');
-          await fetchRoomsFromCloudOnce(false);
-          reclaimMatchingRolesAcrossRooms(getMyUid(), getMyNickname(), norm);
+          cloudListDocs('rooms', 200)
+            .then((docs) => {
+              let anyCloudUpdated = false;
+              docs.forEach((rawDoc) => {
+                const rData = normalizeRoomFromRemote(rawDoc);
+                if (rData && rData.id) {
+                  appState.rooms[rData.id] = rData;
+                  anyCloudUpdated = true;
+                }
+              });
+              if (anyCloudUpdated) {
+                reclaimMatchingRolesAcrossRooms(getMyUid(), getMyNickname(), norm);
+                renderLobbyRooms();
+              }
+            })
+            .catch(() => {});
         }
 
         if (shouldResubscribe) {
-          fetchVaultProfileOnce(norm);
-          if (appState.lobbyTab === 'records') {
-            fetchVaultRecordsOnce(norm);
-          }
+          subscribeVaultRecords(norm);
+          subscribeVaultProfileStats(norm);
         }
         return true;
       }
@@ -1602,8 +1777,7 @@
           return stored;
         }
         if (!fallbackSessionNickname) {
-          const suffix = Math.floor(1000 + Math.random() * 9000);
-          fallbackSessionNickname = `棋友_${suffix}`;
+          fallbackSessionNickname = generateNewGuestNickname();
         }
         return fallbackSessionNickname;
       }
@@ -1644,7 +1818,8 @@
             isFreshlyGeneratedVaultCode = false;
             safeSetStorage(STORAGE_KEYS.VAULT_CODE, prof.vaultCode, true);
             updateVaultAndCloudStatusUI();
-            fetchVaultProfileOnce(prof.vaultCode);
+            subscribeVaultRecords(prof.vaultCode);
+            subscribeVaultProfileStats(prof.vaultCode);
           }
           if (prof.nickname && !hasExplicitPersistedNickname) {
             setMyNickname(prof.nickname, true);
@@ -1703,32 +1878,32 @@
         if (changed && (oldUid !== finalUid || (hasExplicitPersistedNickname && oldName !== finalName))) {
           Object.values(appState.rooms || {}).forEach((r) => {
             if (!r) return;
-            let localRoomChanged = false;
+            let cloudRoomChanged = false;
             if (r.hostUid === oldUid || r.hostUid === finalUid || (myVault && r.hostVaultCode === myVault)) {
               r.hostUid = finalUid;
               if (myVault) r.hostVaultCode = myVault;
               if (hasExplicitPersistedNickname) r.hostName = finalName;
-              localRoomChanged = true;
+              cloudRoomChanged = true;
             }
             if (r.blackUid === oldUid || r.blackUid === finalUid || (myVault && r.blackVaultCode === myVault)) {
               r.blackUid = finalUid;
               if (myVault) r.blackVaultCode = myVault;
               if (hasExplicitPersistedNickname) r.blackName = finalName;
-              localRoomChanged = true;
+              cloudRoomChanged = true;
             }
             if (r.whiteUid === oldUid || r.whiteUid === finalUid || (myVault && r.whiteVaultCode === myVault)) {
               r.whiteUid = finalUid;
               if (myVault) r.whiteVaultCode = myVault;
               if (hasExplicitPersistedNickname) r.whiteName = finalName;
-              localRoomChanged = true;
+              cloudRoomChanged = true;
             }
             if (r.studyControllerUid === oldUid || r.studyControllerUid === finalUid || (myVault && r.studyControllerVaultCode === myVault)) {
               r.studyControllerUid = finalUid;
               if (myVault) r.studyControllerVaultCode = myVault;
               if (hasExplicitPersistedNickname) r.studyControllerName = finalName;
-              localRoomChanged = true;
+              cloudRoomChanged = true;
             }
-            if (localRoomChanged && useFirebase) {
+            if (cloudRoomChanged && useFirebase) {
               cloudSetDoc('rooms', r.id, serializeRoomForFirestore(r), { merge: true }).catch(() => {});
             }
           });
@@ -1760,7 +1935,7 @@
               roomTouched = true;
             }
             if (roomTouched) {
-              updateMyRoomPresence(state.id);
+              updateMyRoomPresence(state.id, true);
               persistCurrentRoomAndSync(false);
             }
           }
@@ -1768,7 +1943,6 @@
 
         if (changed) {
           renderLobbyRooms();
-          updateMyMatchesBadge();
           if (state) updateAllRoomUI();
         }
       }
@@ -1820,6 +1994,47 @@
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;')
           .replace(/"/g, '&quot;');
+      }
+
+      function formatFirebaseError(err) {
+        if (!err) return '未知雲端錯誤';
+        const code = err.code || err.message || '';
+        if (code === 'auth/admin-restricted-operation') {
+          return 'Firebase 專案尚未開啟「匿名登入 (Anonymous)」，請至 Firebase Console → Authentication → Sign-in method 啟用匿名登入';
+        }
+        if (code === 'AUTH_REQUIRED_AND_DISABLED') {
+          return 'Firebase 匿名登入未啟用 (auth/admin-restricted-operation)，且 Firestore 規則拒絕未登入讀寫。請在 Firebase Console 開啟「匿名登入」，或將 Firestore 規則設為允許讀寫。';
+        }
+        if (code === 'CONNECTION_TIMEOUT' || code === 'WRITE_TIMEOUT' || code === 'DELETE_TIMEOUT') {
+          return '連線 Firebase 逾時，請確認網路連線正常、非受限預覽視窗，且 Firebase Console 已建立 Firestore 資料庫';
+        }
+        if (code === 'permission-denied') {
+          return '權限被拒 (permission-denied)，請確認 Firebase Firestore 安全規則與匿名登入已開啟';
+        }
+        if (code === 'failed-precondition') {
+          return 'Firestore 資料庫尚未啟用或索引未就緒 (failed-precondition)';
+        }
+        if (code === 'unavailable') {
+          return '目前無法連線至 Firebase 伺服器 (unavailable)，請檢查網路連線';
+        }
+        if (code === 'unauthenticated') {
+          return '尚未通過 Firebase 驗證 (unauthenticated)，請開啟匿名登入';
+        }
+        return `${err.code ? `[${err.code}] ` : ''}${err.message || String(err)}`;
+      }
+
+      function withTimeout(promise, ms, timeoutCode = 'CONNECTION_TIMEOUT') {
+        let timer = null;
+        const timeoutPromise = new Promise((_, reject) => {
+          timer = setTimeout(() => {
+            const err = new Error(timeoutCode);
+            err.code = timeoutCode;
+            reject(err);
+          }, ms);
+        });
+        return Promise.race([promise, timeoutPromise]).finally(() => {
+          if (timer) clearTimeout(timer);
+        });
       }
 
       let toastTimer = null;
@@ -2185,7 +2400,7 @@
         };
       }
 
-      // ==================== 4. 狀態管理、Firebase 必要持久化 ＋ App-to-App 直傳架構 ====================
+      // ==================== 4. 狀態管理與純 Firebase 雲端資料庫即時同步（無本地房間快取） ====================
       const appState = {
         lobbyTab: 'all',
         searchQuery: '',
@@ -2193,7 +2408,6 @@
         roomsLoadedFromCloud: false,
         cloudProfiles: {},
         vaultProfiles: {},
-        fetchedVaultStatsCodes: new Set(),
         records: [],
         lobbyChat: [],
         createDraft: {
@@ -2232,386 +2446,113 @@
       let firestoreSettingsApplied = false;
       let networkListenersBound = false;
       let roomsCollectionUnsubscribe = null;
+      let lobbyChatUnsubscribe = null;
+      let userProfilesUnsubscribe = null;
+      let vaultProfilesAllUnsubscribe = null;
       let roomUnsubscribe = null;
+      let roomChatUnsubscribe = null;
+      let roomMembersUnsubscribe = null;
+      let recordsUnsubscribe = null;
+      let roomPresenceTimer = null;
       let myRoomJoinedAt = 0;
       const renderedRoomChatIds = new Set();
 
-      // ==================== 4.1 App-to-App 直接傳遞引擎（WebRTC P2P + 跨分頁通道，零 Firebase 額度） ====================
-      const AppDirectBus = (() => {
-        const MAX_ROOM_SLOTS = 12;
-        const MAX_LOBBY_SLOTS = 8;
-        let bc = null;
-        try {
-          if (typeof BroadcastChannel !== 'undefined') {
-            bc = new BroadcastChannel('weiqi_app_direct_bus_v1');
-          }
-        } catch (e) {
-          bc = null;
+      function getActiveFirebaseConfig() {
+        if (DEFAULT_EXTERNAL_FIREBASE_CONFIG && DEFAULT_EXTERNAL_FIREBASE_CONFIG.apiKey) {
+          return { cfg: DEFAULT_EXTERNAL_FIREBASE_CONFIG, external: true };
         }
-
-        let activePeer = null;
-        let currentChannelKey = '';
-        let currentChannelType = ''; // 'room' | 'lobby'
-        let currentRoomId = '';
-        const connections = new Map(); // remotePeerId -> DataConnection
-        const seenPackets = new Set();
-        let destroyFlag = false;
-
-        function markPacketSeen(packetId) {
-          if (!packetId) return false;
-          if (seenPackets.has(packetId)) return true;
-          seenPackets.add(packetId);
-          if (seenPackets.size > 600) {
-            const first = seenPackets.values().next().value;
-            seenPackets.delete(first);
-          }
-          return false;
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+          const parsed = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
+          return { cfg: parsed, external: false };
         }
+        return { cfg: null, external: false };
+      }
 
-        function updateP2PStatusBadge() {
-          const pill = document.getElementById('room-p2p-status-pill');
-          if (!pill) return;
-          const peerCount = connections.size;
-          if (peerCount > 0) {
-            pill.textContent = `⚡ App 直連 (${peerCount + 1}人)`;
-            pill.className = 'px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-bold shrink-0';
-          } else {
-            pill.textContent = '⚡ App 直傳就緒';
-            pill.className = 'px-1.5 py-0.5 rounded bg-stone-200 text-stone-700 text-[10px] font-bold shrink-0';
-          }
-        }
-
-        function handleIncomingEnvelope(env, fromPeerId = null) {
-          if (!env || !env.packetId || markPacketSeen(env.packetId)) return;
-
-          if (fromPeerId) {
-            connections.forEach((conn, pid) => {
-              if (pid !== fromPeerId && conn && conn.open) {
-                try { conn.send(env); } catch (e) {}
-              }
-            });
-          }
-
-          const payload = env.payload || {};
-          if (env.channelType === 'room' && state && env.roomId === state.id) {
-            if (payload.type === 'room_message' && payload.msg) {
-              appendRoomChatMessage(payload.msg, true);
-              if (payload.peerInfo && payload.peerInfo.uid) {
-                appState.roomMembers[payload.peerInfo.uid] = {
-                  ...payload.peerInfo,
-                  roomId: state.id,
-                  lastSeenAt: Date.now()
-                };
-                renderRoomMembersList();
-              }
-            } else if (payload.type === 'room_state' && payload.room) {
-              applyIncomingRoomSnapshot(payload.room);
-            } else if (payload.type === 'peer_hello' && payload.peerInfo && payload.peerInfo.uid) {
-              const pInfo = payload.peerInfo;
-              const isNew = !appState.roomMembers[pInfo.uid];
-              appState.roomMembers[pInfo.uid] = {
-                ...pInfo,
-                roomId: state.id,
-                peerId: fromPeerId || '',
-                lastSeenAt: Date.now()
-              };
-              renderRoomMembersList();
-              if (isNew && fromPeerId) {
-                sendHelloToPeer(fromPeerId);
-              }
-            } else if (payload.type === 'peer_bye' && payload.uid) {
-              delete appState.roomMembers[payload.uid];
-              renderRoomMembersList();
-            }
-          } else if (env.channelType === 'lobby' && !state) {
-            if (payload.type === 'lobby_message' && payload.msg) {
-              const exists = appState.lobbyChat.some((m) => m.id === payload.msg.id);
-              if (!exists) {
-                appState.lobbyChat.push(payload.msg);
-                if (appState.lobbyChat.length > MAX_LOBBY_CHAT) {
-                  appState.lobbyChat.splice(0, appState.lobbyChat.length - MAX_LOBBY_CHAT);
-                }
-                renderLobbyChat();
-              }
-            }
-          }
-        }
-
-        if (bc) {
-          bc.onmessage = (ev) => {
-            handleIncomingEnvelope(ev.data, null);
-          };
-        }
-
-        function sendHelloToPeer(targetPeerId) {
-          const conn = connections.get(targetPeerId);
-          if (!conn || !conn.open || !state) return;
-          const env = {
-            packetId: generateId('pkt'),
-            channelType: 'room',
-            roomId: state.id,
-            payload: {
-              type: 'peer_hello',
-              peerInfo: {
-                uid: getMyUid(),
-                vaultCode: getMyVaultCode(),
-                name: getMyNickname(),
-                joinedAt: myRoomJoinedAt || Date.now()
-              }
-            }
-          };
-          markPacketSeen(env.packetId);
-          try { conn.send(env); } catch (e) {}
-        }
-
-        function bindDataConnection(conn) {
-          if (!conn || !conn.peer) return;
-          conn.on('open', () => {
-            if (destroyFlag) {
-              try { conn.close(); } catch (e) {}
-              return;
-            }
-            connections.set(conn.peer, conn);
-            updateP2PStatusBadge();
-            if (currentChannelType === 'room' && state) {
-              sendHelloToPeer(conn.peer);
-            }
-          });
-          conn.on('data', (data) => {
-            handleIncomingEnvelope(data, conn.peer);
-          });
-          const cleanupConn = () => {
-            connections.delete(conn.peer);
-            Object.keys(appState.roomMembers).forEach((uid) => {
-              if (appState.roomMembers[uid]?.peerId === conn.peer) {
-                delete appState.roomMembers[uid];
-              }
-            });
-            updateP2PStatusBadge();
-            if (state) renderRoomMembersList();
-          };
-          conn.on('close', cleanupConn);
-          conn.on('error', cleanupConn);
-        }
-
-        function leaveCurrentChannel() {
-          if (currentChannelType === 'room' && currentRoomId) {
-            broadcast({
-              type: 'peer_bye',
-              uid: getMyUid()
-            });
-          }
-          destroyFlag = true;
-          connections.forEach((conn) => {
-            try { conn.close(); } catch (e) {}
-          });
-          connections.clear();
-          if (activePeer) {
-            try { activePeer.destroy(); } catch (e) {}
-            activePeer = null;
-          }
-          currentChannelKey = '';
-          currentChannelType = '';
-          currentRoomId = '';
-          updateP2PStatusBadge();
-        }
-
-        function joinChannel(channelType, roomId = '') {
-          const safeKey = channelType === 'room'
-            ? `wq_r_${String(roomId).replace(/[^a-zA-Z0-9_-]/g, '')}`
-            : 'wq_lobby';
-          if (currentChannelKey === safeKey && activePeer && !activePeer.destroyed) {
-            return;
-          }
-          leaveCurrentChannel();
-          destroyFlag = false;
-          currentChannelKey = safeKey;
-          currentChannelType = channelType;
-          currentRoomId = roomId;
-
-          if (typeof Peer === 'undefined') {
-            updateP2PStatusBadge();
-            return;
-          }
-
-          const maxSlots = channelType === 'room' ? MAX_ROOM_SLOTS : MAX_LOBBY_SLOTS;
-          const tryClaimSlot = (slotIndex) => {
-            if (destroyFlag || currentChannelKey !== safeKey || slotIndex >= maxSlots) return;
-            const candidateId = `${safeKey}_s${slotIndex}`;
-            let peerInstance = null;
-            try {
-              peerInstance = new Peer(candidateId, { debug: 0 });
-            } catch (e) {
-              return;
-            }
-            activePeer = peerInstance;
-
-            peerInstance.on('open', () => {
-              if (destroyFlag || activePeer !== peerInstance) {
-                try { peerInstance.destroy(); } catch (e) {}
-                return;
-              }
-              updateP2PStatusBadge();
-              for (let i = 0; i < maxSlots; i++) {
-                if (i === slotIndex) continue;
-                const targetId = `${safeKey}_s${i}`;
-                try {
-                  const conn = peerInstance.connect(targetId, { reliable: true });
-                  if (conn) bindDataConnection(conn);
-                } catch (e) {}
-              }
-            });
-
-            peerInstance.on('connection', (incomingConn) => {
-              if (destroyFlag || activePeer !== peerInstance) {
-                try { incomingConn.close(); } catch (e) {}
-                return;
-              }
-              bindDataConnection(incomingConn);
-            });
-
-            peerInstance.on('error', (err) => {
-              if (destroyFlag || activePeer !== peerInstance) return;
-              if (err && err.type === 'unavailable-id') {
-                try { peerInstance.destroy(); } catch (e) {}
-                tryClaimSlot(slotIndex + 1);
-              }
-            });
-          };
-
-          tryClaimSlot(0);
-        }
-
-        function broadcast(payload) {
-          const env = {
-            packetId: generateId('pkt'),
-            channelType: currentChannelType || (state ? 'room' : 'lobby'),
-            roomId: currentRoomId || (state ? state.id : ''),
-            payload
-          };
-          markPacketSeen(env.packetId);
-          if (bc) {
-            try { bc.postMessage(env); } catch (e) {}
-          }
-          connections.forEach((conn) => {
-            if (conn && conn.open) {
-              try { conn.send(env); } catch (e) {}
-            }
-          });
-        }
-
-        return {
-          joinRoom: (roomId) => joinChannel('room', roomId),
-          joinLobby: () => joinChannel('lobby', ''),
-          leave: leaveCurrentChannel,
-          broadcast,
-          getPeerCount: () => connections.size
-        };
-      })();
-
-      // ==================== 4.2 Firebase 集合與雙通道（SDK + REST 自動備援）引擎 ====================
       function getCloudCollectionName(shortName) {
-        return isExternalFirebase ? `weiqi_${shortName}` : `artifacts/${typeof __app_id !== 'undefined' ? __app_id : 'weiqi-default'}/public/data/${shortName}`;
+        if (isExternalFirebase) {
+          return `weiqi_${shortName}`;
+        }
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'weiqi-default';
+        return `artifacts/${appId}/public/data/${shortName}`;
       }
 
       function getCloudCollection(shortName) {
         return db.collection(getCloudCollectionName(shortName));
       }
 
-      function withTimeout(promise, ms = 8500, errCode = 'CONNECTION_TIMEOUT') {
-        let timer = null;
-        const timeoutPromise = new Promise((_, reject) => {
-          timer = setTimeout(() => {
-            const err = new Error(errCode);
-            err.code = errCode;
-            reject(err);
-          }, ms);
-        });
-        return Promise.race([promise, timeoutPromise]).finally(() => {
-          if (timer) clearTimeout(timer);
-        });
-      }
-
-      function formatFirebaseError(err) {
-        const code = err && err.code ? String(err.code) : '';
-        const msg = err && err.message ? String(err.message) : '';
-        if (code.includes('permission-denied') || msg.includes('PERMISSION_DENIED') || msg.includes('Missing or insufficient permissions')) {
-          return 'Firestore 安全規則拒絕讀寫（請在 Firebase Console 確認匿名登入已開啟，或規則允許讀寫）';
-        }
-        if (code.includes('admin-restricted-operation')) {
-          return 'Firebase 尚未開啟匿名登入（auth/admin-restricted-operation）';
-        }
-        if (code.includes('TIMEOUT') || msg.includes('TIMEOUT')) {
-          return '連線逾時，請檢查網路後重試';
-        }
-        if (code.includes('unavailable') || msg.includes('Failed to fetch')) {
-          return '無法連上 Firebase 伺服器，請檢查網路連線';
-        }
-        return msg || code || '未知雲端錯誤';
-      }
-
+      // ==================== Firestore REST API 備援引擎（解決長連線串流被阻斷導致的 maximum backoff 錯誤） ====================
       function toFirestoreRestValue(val) {
         if (val === null || val === undefined) return { nullValue: null };
         if (typeof val === 'boolean') return { booleanValue: val };
         if (typeof val === 'number') {
+          if (!Number.isFinite(val)) return { nullValue: null };
           return Number.isInteger(val) ? { integerValue: String(val) } : { doubleValue: val };
         }
         if (typeof val === 'string') return { stringValue: val };
         if (Array.isArray(val)) {
-          return { arrayValue: { values: val.map(toFirestoreRestValue) } };
+          return { arrayValue: { values: val.map((item) => toFirestoreRestValue(item)) } };
         }
         if (typeof val === 'object') {
-          const fields = {};
-          Object.entries(val).forEach(([k, v]) => {
-            if (v !== undefined) fields[k] = toFirestoreRestValue(v);
-          });
-          return { mapValue: { fields } };
+          return { mapValue: { fields: toFirestoreRestFields(val) } };
         }
         return { stringValue: String(val) };
       }
 
-      function fromFirestoreRestValue(vObj) {
-        if (!vObj || typeof vObj !== 'object') return null;
-        if ('nullValue' in vObj) return null;
-        if ('booleanValue' in vObj) return Boolean(vObj.booleanValue);
-        if ('integerValue' in vObj) return Number(vObj.integerValue);
-        if ('doubleValue' in vObj) return Number(vObj.doubleValue);
-        if ('stringValue' in vObj) return String(vObj.stringValue);
-        if ('timestampValue' in vObj) return Date.parse(vObj.timestampValue) || 0;
-        if ('arrayValue' in vObj) {
-          const arr = (vObj.arrayValue && vObj.arrayValue.values) || [];
-          return arr.map(fromFirestoreRestValue);
+      function toFirestoreRestFields(obj) {
+        const fields = {};
+        if (!obj || typeof obj !== 'object') return fields;
+        Object.entries(obj).forEach(([k, v]) => {
+          if (v !== undefined) {
+            fields[k] = toFirestoreRestValue(v);
+          }
+        });
+        return fields;
+      }
+
+      function fromFirestoreRestValue(v) {
+        if (!v || typeof v !== 'object') return null;
+        if ('nullValue' in v) return null;
+        if ('booleanValue' in v) return Boolean(v.booleanValue);
+        if ('integerValue' in v) return Number(v.integerValue);
+        if ('doubleValue' in v) return Number(v.doubleValue);
+        if ('stringValue' in v) return String(v.stringValue);
+        if ('timestampValue' in v) return Date.parse(v.timestampValue) || 0;
+        if ('arrayValue' in v) {
+          const vals = (v.arrayValue && v.arrayValue.values) || [];
+          return vals.map((item) => fromFirestoreRestValue(item));
         }
-        if ('mapValue' in vObj) {
-          const out = {};
-          const fields = (vObj.mapValue && vObj.mapValue.fields) || {};
-          Object.entries(fields).forEach(([k, v]) => {
-            out[k] = fromFirestoreRestValue(v);
-          });
-          return out;
+        if ('mapValue' in v) {
+          return fromFirestoreRestFields((v.mapValue && v.mapValue.fields) || {});
         }
         return null;
       }
 
-      function parseFirestoreRestDoc(docObj) {
-        if (!docObj || !docObj.fields) return null;
+      function fromFirestoreRestFields(fields) {
         const out = {};
-        Object.entries(docObj.fields).forEach(([k, v]) => {
+        if (!fields || typeof fields !== 'object') return out;
+        Object.entries(fields).forEach(([k, v]) => {
           out[k] = fromFirestoreRestValue(v);
         });
         return out;
       }
 
-      async function firestoreRestFetch(relPath, options = {}) {
-        const cfg = DEFAULT_EXTERNAL_FIREBASE_CONFIG;
-        const projectId = cfg.projectId;
-        const apiKey = cfg.apiKey;
-        const base = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents`;
-        const sep = relPath.includes('?') ? '&' : '?';
-        const url = relPath.startsWith(':')
-          ? `${base}${relPath}?key=${encodeURIComponent(apiKey)}`
-          : `${base}/${relPath}${sep}key=${encodeURIComponent(apiKey)}`;
+      function parseFirestoreRestDoc(docJson) {
+        if (!docJson || !docJson.fields) return null;
+        const data = fromFirestoreRestFields(docJson.fields);
+        if (!data.id && docJson.name) {
+          const parts = String(docJson.name).split('/');
+          data.id = parts[parts.length - 1];
+        }
+        return data;
+      }
 
+      async function firestoreRestFetch(path, options = {}) {
+        const { cfg } = getActiveFirebaseConfig();
+        if (!cfg || !cfg.projectId || !cfg.apiKey) {
+          throw new Error('缺少 Firebase 專案設定');
+        }
+        const sep = path.includes('?') ? '&' : '?';
+        const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(cfg.projectId)}/databases/(default)/documents/${path}${sep}key=${encodeURIComponent(cfg.apiKey)}`;
         const headers = { 'Content-Type': 'application/json' };
         if (currentUser && typeof currentUser.getIdToken === 'function') {
           try {
@@ -2619,26 +2560,39 @@
             if (token) headers.Authorization = `Bearer ${token}`;
           } catch (e) {}
         }
-
-        const res = await withTimeout(
-          fetch(url, {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), options.timeoutMs || 8000);
+        try {
+          const resp = await fetch(url, {
             method: options.method || 'GET',
             headers,
-            body: options.body ? JSON.stringify(options.body) : undefined
-          }),
-          options.timeoutMs || 8000,
-          'CONNECTION_TIMEOUT'
-        );
-
-        if (res.status === 404) return null;
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          const errMsg = (json && json.error && json.error.message) || `HTTP_${res.status}`;
-          const err = new Error(errMsg);
-          err.code = res.status === 403 ? 'permission-denied' : `http-${res.status}`;
+            body: options.body ? JSON.stringify(options.body) : undefined,
+            signal: controller.signal
+          });
+          if (!resp.ok) {
+            let errJson = null;
+            try { errJson = await resp.json(); } catch (e) {}
+            const statusStr = errJson?.error?.status || '';
+            const msgStr = errJson?.error?.message || `HTTP ${resp.status}`;
+            const err = new Error(msgStr);
+            if (resp.status === 403 || statusStr === 'PERMISSION_DENIED') err.code = 'permission-denied';
+            else if (resp.status === 404 || statusStr === 'NOT_FOUND') err.code = 'not-found';
+            else if (resp.status === 401 || statusStr === 'UNAUTHENTICATED') err.code = 'unauthenticated';
+            else err.code = statusStr || `http-${resp.status}`;
+            throw err;
+          }
+          if (resp.status === 204) return null;
+          return await resp.json();
+        } catch (err) {
+          if (err && err.name === 'AbortError') {
+            const tErr = new Error('CONNECTION_TIMEOUT');
+            tErr.code = 'CONNECTION_TIMEOUT';
+            throw tErr;
+          }
           throw err;
+        } finally {
+          clearTimeout(timer);
         }
-        return json;
       }
 
       async function cloudGetDoc(shortName, docId) {
@@ -2647,42 +2601,13 @@
           const snap = await withTimeout(db.collection(colPath).doc(docId).get(), 7000, 'CONNECTION_TIMEOUT');
           return snap.exists ? snap.data() : null;
         }
-        const raw = await firestoreRestFetch(`${colPath}/${encodeURIComponent(docId)}`);
-        return parseFirestoreRestDoc(raw);
-      }
-
-      async function cloudSetDoc(shortName, docId, data, options = {}) {
-        const colPath = getCloudCollectionName(shortName);
-        if (firebaseTransport === 'sdk' && db) {
-          return withTimeout(db.collection(colPath).doc(docId).set(data, options), 8500, 'CONNECTION_TIMEOUT');
+        try {
+          const raw = await firestoreRestFetch(`${colPath}/${encodeURIComponent(docId)}`);
+          return parseFirestoreRestDoc(raw);
+        } catch (err) {
+          if (err && err.code === 'not-found') return null;
+          throw err;
         }
-        const fields = {};
-        const maskParams = [];
-        Object.entries(data || {}).forEach(([k, v]) => {
-          if (v !== undefined) {
-            fields[k] = toFirestoreRestValue(v);
-            if (options.merge) {
-              maskParams.push(`updateMask.fieldPaths=${encodeURIComponent(k)}`);
-            }
-          }
-        });
-        const querySuffix = maskParams.length ? `?${maskParams.join('&')}` : '';
-        return firestoreRestFetch(`${colPath}/${encodeURIComponent(docId)}${querySuffix}`, {
-          method: 'PATCH',
-          body: { fields },
-          timeoutMs: 8500
-        });
-      }
-
-      async function cloudDeleteDoc(shortName, docId) {
-        const colPath = getCloudCollectionName(shortName);
-        if (firebaseTransport === 'sdk' && db) {
-          return withTimeout(db.collection(colPath).doc(docId).delete(), 8500, 'CONNECTION_TIMEOUT');
-        }
-        return firestoreRestFetch(`${colPath}/${encodeURIComponent(docId)}`, {
-          method: 'DELETE',
-          timeoutMs: 8500
-        });
       }
 
       async function cloudListDocs(shortName, pageSize = 200) {
@@ -2698,42 +2623,42 @@
         return docs.map(parseFirestoreRestDoc).filter(Boolean);
       }
 
-      async function cloudQueryByField(shortName, fieldName, value, pageSize = 200) {
+      async function cloudSetDoc(shortName, docId, data, options = {}) {
         const colPath = getCloudCollectionName(shortName);
         if (firebaseTransport === 'sdk' && db) {
-          const snap = await withTimeout(
-            db.collection(colPath).where(fieldName, '==', value).limit(pageSize).get(),
-            7000,
-            'CONNECTION_TIMEOUT'
-          );
-          const list = [];
-          snap.forEach((d) => list.push(d.data()));
-          return list;
+          const ref = db.collection(colPath).doc(docId);
+          await withTimeout(options.merge ? ref.set(data, { merge: true }) : ref.set(data), 8000, 'WRITE_TIMEOUT');
+          return;
         }
-        const raw = await firestoreRestFetch(':runQuery', {
-          method: 'POST',
-          body: {
-            structuredQuery: {
-              from: [{ collectionId: colPath }],
-              where: {
-                fieldFilter: {
-                  field: { fieldPath: fieldName },
-                  op: 'EQUAL',
-                  value: { stringValue: String(value) }
-                }
-              },
-              limit: pageSize
-            }
-          },
+        let query = '';
+        if (options.fieldPaths && Array.isArray(options.fieldPaths) && options.fieldPaths.length) {
+          query = '?' + options.fieldPaths.map((p) => `updateMask.fieldPaths=${encodeURIComponent(p)}`).join('&');
+        } else if (options.merge) {
+          const keys = Object.keys(data || {});
+          if (keys.length) {
+            query = '?' + keys.map((k) => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
+          }
+        }
+        await firestoreRestFetch(`${colPath}/${encodeURIComponent(docId)}${query}`, {
+          method: 'PATCH',
+          body: { fields: toFirestoreRestFields(data) },
           timeoutMs: 8000
         });
-        const rows = Array.isArray(raw) ? raw : [];
-        return rows
-          .map((row) => (row && row.document ? parseFirestoreRestDoc(row.document) : null))
-          .filter(Boolean);
       }
 
-      function cloudSubscribeDoc(shortName, docId, onData, onError, pollMs = 3500) {
+      async function cloudDeleteDoc(shortName, docId) {
+        const colPath = getCloudCollectionName(shortName);
+        if (firebaseTransport === 'sdk' && db) {
+          await withTimeout(db.collection(colPath).doc(docId).delete(), 8000, 'DELETE_TIMEOUT');
+          return;
+        }
+        await firestoreRestFetch(`${colPath}/${encodeURIComponent(docId)}`, {
+          method: 'DELETE',
+          timeoutMs: 8000
+        });
+      }
+
+      function cloudSubscribeDoc(shortName, docId, onData, onError, pollMs = 1500) {
         const colPath = getCloudCollectionName(shortName);
         if (firebaseTransport === 'sdk' && db) {
           return db.collection(colPath).doc(docId).onSnapshot(
@@ -2744,7 +2669,6 @@
         let stopped = false;
         const tick = async () => {
           if (stopped) return;
-          if (typeof document !== 'undefined' && document.hidden) return;
           try {
             const data = await cloudGetDoc(shortName, docId);
             if (!stopped) onData(data);
@@ -2760,7 +2684,7 @@
         };
       }
 
-      function cloudSubscribeCollection(shortName, onDocs, onError, pollMs = 12000, pageSize = 200) {
+      function cloudSubscribeCollection(shortName, onDocs, onError, pollMs = 2500, pageSize = 200) {
         const colPath = getCloudCollectionName(shortName);
         if (firebaseTransport === 'sdk' && db) {
           return db.collection(colPath).onSnapshot(
@@ -2775,8 +2699,6 @@
         let stopped = false;
         const tick = async () => {
           if (stopped) return;
-          if (typeof document !== 'undefined' && document.hidden) return;
-          if (shortName === 'rooms' && state) return;
           try {
             const list = await cloudListDocs(shortName, pageSize);
             if (!stopped) onDocs(list);
@@ -2793,45 +2715,93 @@
       }
 
       function updateFirebaseStatusUI(status, detailMsg = '') {
-        const dot = document.getElementById('firebase-status-dot');
-        const text = document.getElementById('firebase-status-text');
-        const banner = document.getElementById('firebase-error-banner');
-        const detail = document.getElementById('firebase-error-detail');
+        const badge = document.getElementById('firebase-status-badge');
+        const errBanner = document.getElementById('firebase-error-banner');
+        const errDetail = document.getElementById('firebase-error-detail');
 
-        if (status === 'connected') {
-          if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
-          if (text) text.textContent = firebaseTransport === 'rest' ? 'Firebase(REST)' : 'Firebase 已連線';
-          banner?.classList.add('hidden');
-        } else if (status === 'error') {
-          if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-rose-500';
-          if (text) text.textContent = '連線異常';
-          if (detail && detailMsg) detail.textContent = detailMsg;
-          banner?.classList.remove('hidden');
-        } else {
-          if (dot) dot.className = 'w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse';
-          if (text) text.textContent = '連線中';
+        if (badge) {
+          if (status === 'connected') {
+            const modeLabel = firebaseTransport === 'rest' ? 'Firebase 已連線 (REST)' : 'Firebase 已連線';
+            badge.className = 'hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-700 text-[11px] font-semibold text-emerald-300 shrink-0';
+            badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span><span>${modeLabel}</span>`;
+          } else if (status === 'error') {
+            badge.className = 'hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-950/90 border border-rose-700 text-[11px] font-semibold text-rose-300 shrink-0';
+            badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span><span>Firebase 異常</span>';
+          } else {
+            badge.className = 'hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-stone-800 border border-stone-700 text-[11px] font-semibold text-amber-300 shrink-0';
+            badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span><span>連線 Firebase 中...</span>';
+          }
+        }
+
+        if (errBanner) {
+          if (status === 'error') {
+            errBanner.classList.remove('hidden');
+            if (errDetail && detailMsg) errDetail.textContent = detailMsg;
+          } else {
+            errBanner.classList.add('hidden');
+          }
         }
       }
 
-      async function fetchVaultRecordsOnce(vaultCode) {
-        const code = normalizeVaultCode(vaultCode || getMyVaultCode());
-        renderLobbyRecords();
-        if (!useFirebase || !code) return;
+      function getLocalVaultCacheMap() {
         try {
-          const docs = await cloudQueryByField('vault_records', 'vaultCode', code, 200);
-          const cloudMap = {};
-          docs.forEach((d) => {
-            if (d && d.id && d.vaultCode === code) cloudMap[d.id] = d;
-          });
-          const merged = Object.values(cloudMap);
-          merged.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-          appState.records = merged;
-          renderLobbyRecords();
-          const loadModal = document.getElementById('load-sgf-modal');
-          if (loadModal && !loadModal.classList.contains('hidden')) {
-            renderLoadModalRecordsList();
-          }
+          const raw = safeGetStorage(STORAGE_KEYS.LOCAL_VAULT_RECORDS);
+          const parsed = raw ? JSON.parse(raw) : {};
+          return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch (e) {
+          return {};
+        }
+      }
+
+      function saveLocalVaultRecordsForCode(vaultCode, recordsList) {
+        if (!vaultCode) return;
+        const map = getLocalVaultCacheMap();
+        map[vaultCode] = Array.isArray(recordsList) ? recordsList : [];
+        try {
+          safeSetStorage(STORAGE_KEYS.LOCAL_VAULT_RECORDS, JSON.stringify(map), true);
         } catch (e) {}
+      }
+
+      function loadLocalVaultRecordsForCode(vaultCode) {
+        const map = getLocalVaultCacheMap();
+        const list = map[vaultCode];
+        return Array.isArray(list) ? list : [];
+      }
+
+      function subscribeVaultRecords(vaultCode) {
+        const code = normalizeVaultCode(vaultCode || getMyVaultCode());
+        if (recordsUnsubscribe) {
+          recordsUnsubscribe();
+          recordsUnsubscribe = null;
+        }
+        const localCached = loadLocalVaultRecordsForCode(code);
+        appState.records = localCached;
+        renderLobbyRecords();
+
+        if (!useFirebase || !code) {
+          return;
+        }
+
+        recordsUnsubscribe = cloudSubscribeCollection(
+          'vault_records',
+          (docs) => {
+            const cloudMap = {};
+            docs.forEach((d) => {
+              if (d && d.id && d.vaultCode === code) cloudMap[d.id] = d;
+            });
+            const merged = Object.values(cloudMap);
+            merged.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            appState.records = merged;
+            saveLocalVaultRecordsForCode(code, merged);
+            renderLobbyRecords();
+            const loadModal = document.getElementById('load-sgf-modal');
+            if (loadModal && !loadModal.classList.contains('hidden')) {
+              renderLoadModalRecordsList();
+            }
+          },
+          () => {},
+          5000
+        );
       }
 
       async function handleAuthenticatedUserReady(user) {
@@ -2845,7 +2815,6 @@
         try {
           const pData = await cloudGetDoc('user_profiles', authUid);
           if (pData) {
-            appState.cloudProfiles[authUid] = pData;
             if (pData.nickname) cloudNick = pData.nickname;
             if (pData.vaultCode) cloudVault = normalizeVaultCode(pData.vaultCode);
           }
@@ -2882,32 +2851,6 @@
         return copy;
       }
 
-      async function fetchRoomsFromCloudOnce(showFeedback = false) {
-        if (!useFirebase) {
-          if (showFeedback) showToast('⚠️ Firebase 尚未連線，無法同步雲端房間');
-          return;
-        }
-        try {
-          const list = await cloudListDocs('rooms', 200);
-          const nextRooms = {};
-          list.forEach((rawDoc) => {
-            const data = normalizeRoomFromRemote(rawDoc);
-            if (data && data.id && !data.deleted && !appState.deletedRoomIds.has(data.id)) {
-              nextRooms[data.id] = data;
-            }
-          });
-          appState.rooms = nextRooms;
-          appState.roomsLoadedFromCloud = true;
-          updateFirebaseStatusUI('connected');
-          renderLobbyRooms();
-          updateMyMatchesBadge();
-          if (showFeedback) showToast(`已從 Firebase 同步最新房間（共 ${Object.keys(nextRooms).length} 間）`);
-        } catch (err) {
-          updateFirebaseStatusUI('error', `讀取房間失敗：${formatFirebaseError(err)}`);
-          if (showFeedback) showToast(`⚠️ 同步失敗：${formatFirebaseError(err)}`);
-        }
-      }
-
       async function hydrateStorageBeforeBoot() {
         purgeLegacyRoomCaches();
         hydrateIdentityFromBundle();
@@ -2940,17 +2883,50 @@
           if (idbData[STORAGE_KEYS.VAULT_STATS] && !safeGetStorage(STORAGE_KEYS.VAULT_STATS)) {
             safeSetStorage(STORAGE_KEYS.VAULT_STATS, idbData[STORAGE_KEYS.VAULT_STATS], false);
           }
+          if (idbData[STORAGE_KEYS.LOCAL_VAULT_RECORDS] && !safeGetStorage(STORAGE_KEYS.LOCAL_VAULT_RECORDS)) {
+            safeSetStorage(STORAGE_KEYS.LOCAL_VAULT_RECORDS, idbData[STORAGE_KEYS.LOCAL_VAULT_RECORDS], false);
+          }
           if (idbData[STORAGE_KEYS.PUBLIC_BASE_URL] && !safeGetStorage(STORAGE_KEYS.PUBLIC_BASE_URL)) {
             safeSetStorage(STORAGE_KEYS.PUBLIC_BASE_URL, idbData[STORAGE_KEYS.PUBLIC_BASE_URL], false);
           }
         } catch (e) {}
 
         isBootHydrated = true;
-        const finalUid = getMyUid();
-        const finalVault = getMyVaultCode();
-        safeSetStorage(STORAGE_KEYS.UID, finalUid, true);
-        safeSetStorage(STORAGE_KEYS.VAULT_CODE, finalVault, true);
-        persistIdentityBundle(finalUid, hasExplicitPersistedNickname ? getMyNickname() : '', hasExplicitPersistedNickname);
+        const storedVault = normalizeVaultCode(safeGetStorage(STORAGE_KEYS.VAULT_CODE));
+        const storedUid = safeGetStorage(STORAGE_KEYS.UID);
+        const storedNick = safeGetStorage(STORAGE_KEYS.NICKNAME);
+
+        if (!storedVault && !storedUid && !storedNick) {
+          // 本地都沒有角色資料：由系統指定一個新角色和新的暱稱
+          const freshUid = generateId('u');
+          const freshVault = generateVaultCode();
+          const freshNick = generateNewGuestNickname();
+          hasExplicitPersistedUid = true;
+          hasExplicitPersistedNickname = true;
+          isFreshlyGeneratedUid = false;
+          isFreshlyGeneratedVaultCode = false;
+          needsCloudRegisterNewCharacter = true;
+          safeSetStorage(STORAGE_KEYS.UID, freshUid, true);
+          safeSetStorage(STORAGE_KEYS.VAULT_CODE, freshVault, true);
+          safeSetStorage(STORAGE_KEYS.NICKNAME, freshNick, true);
+          persistIdentityBundle(freshUid, freshNick, true);
+        } else {
+          const finalUid = getMyUid();
+          const finalVault = getMyVaultCode();
+          if (!storedNick) {
+            const freshNick = generateNewGuestNickname();
+            hasExplicitPersistedNickname = true;
+            safeSetStorage(STORAGE_KEYS.NICKNAME, freshNick, true);
+          }
+          const finalNick = getMyNickname();
+          safeSetStorage(STORAGE_KEYS.UID, finalUid, true);
+          safeSetStorage(STORAGE_KEYS.VAULT_CODE, finalVault, true);
+          safeSetStorage(STORAGE_KEYS.NICKNAME, finalNick, true);
+          persistIdentityBundle(finalUid, finalNick, true);
+          if (isFreshlyGeneratedVaultCode) {
+            needsCloudRegisterNewCharacter = true;
+          }
+        }
       }
 
       async function initSyncBackend() {
@@ -2958,10 +2934,10 @@
         updateVaultAndCloudStatusUI();
         recoverNicknameFromKnownData(getMyUid());
 
-        if (roomsCollectionUnsubscribe) {
-          roomsCollectionUnsubscribe();
-          roomsCollectionUnsubscribe = null;
-        }
+        if (roomsCollectionUnsubscribe) { roomsCollectionUnsubscribe(); roomsCollectionUnsubscribe = null; }
+        if (lobbyChatUnsubscribe) { lobbyChatUnsubscribe(); lobbyChatUnsubscribe = null; }
+        if (userProfilesUnsubscribe) { userProfilesUnsubscribe(); userProfilesUnsubscribe = null; }
+        if (vaultProfilesAllUnsubscribe) { vaultProfilesAllUnsubscribe(); vaultProfilesAllUnsubscribe = null; }
 
         if (typeof navigator !== 'undefined' && navigator.onLine === false) {
           useFirebase = false;
@@ -2973,38 +2949,18 @@
         }
 
         try {
-          let activeCfg = null;
-          let externalMode = false;
-          if (DEFAULT_EXTERNAL_FIREBASE_CONFIG && DEFAULT_EXTERNAL_FIREBASE_CONFIG.apiKey) {
-            activeCfg = DEFAULT_EXTERNAL_FIREBASE_CONFIG;
-            externalMode = true;
-          } else if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-            activeCfg = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
-            externalMode = false;
-          }
-
+          const { cfg: activeCfg, external: externalMode } = getActiveFirebaseConfig();
           if (!activeCfg || !activeCfg.apiKey) {
-            throw new Error('MISSING_FIREBASE_CONFIG');
+            throw new Error('找不到 Firebase 設定檔');
           }
+          isExternalFirebase = externalMode;
 
           if (!firebase.apps.length) {
             firebase.initializeApp(activeCfg);
           }
           if (firebase.firestore && typeof firebase.firestore.setLogLevel === 'function') {
-            firebase.firestore.setLogLevel('silent');
+            firebase.firestore.setLogLevel('error');
           }
-
-          db = firebase.firestore();
-          if (!firestoreSettingsApplied) {
-            try {
-              db.settings({
-                experimentalForceLongPolling: true,
-                ignoreUndefinedProperties: true
-              });
-              firestoreSettingsApplied = true;
-            } catch (settingsErr) {}
-          }
-          isExternalFirebase = externalMode;
 
           if (!networkListenersBound) {
             networkListenersBound = true;
@@ -3019,19 +2975,6 @@
                 db = null;
               }
               updateFirebaseStatusUI('error', '網路已中斷，恢復連線後將自動重新連接 Firebase');
-            });
-            document.addEventListener('visibilitychange', () => {
-              if (document.visibilityState === 'visible' && useFirebase) {
-                if (state) {
-                  cloudGetDoc('rooms', state.id)
-                    .then((docData) => {
-                      if (docData) applyIncomingRoomSnapshot(docData);
-                    })
-                    .catch(() => {});
-                } else {
-                  fetchRoomsFromCloudOnce(false);
-                }
-              }
             });
           }
 
@@ -3057,77 +3000,87 @@
 
             if (restoredUser) {
               currentUser = restoredUser;
-            } else if (externalMode) {
+            } else {
               try {
-                const cred = await withTimeout(auth.signInAnonymously(), 5000, 'AUTH_TIMEOUT');
-                currentUser = (cred && cred.user) || auth.currentUser || null;
+                if (externalMode) {
+                  const cred = await withTimeout(auth.signInAnonymously(), 5000, 'AUTH_TIMEOUT');
+                  currentUser = (cred && cred.user) || auth.currentUser || null;
+                } else {
+                  let cred = null;
+                  if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    cred = await withTimeout(auth.signInWithCustomToken(__initial_auth_token), 5000, 'AUTH_TIMEOUT').catch(() => null);
+                  }
+                  if (!cred || !cred.user) {
+                    cred = await withTimeout(auth.signInAnonymously(), 5000, 'AUTH_TIMEOUT');
+                  }
+                  currentUser = (cred && cred.user) || auth.currentUser || null;
+                }
               } catch (authErr) {
                 if (authErr && authErr.code === 'auth/admin-restricted-operation') {
                   authRestrictedByAdmin = true;
+                  currentUser = null;
+                } else {
+                  throw authErr;
                 }
-                currentUser = auth.currentUser || null;
               }
-            } else {
-              let cred = null;
-              if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                cred = await withTimeout(auth.signInWithCustomToken(__initial_auth_token), 6000, 'AUTH_TIMEOUT').catch(() => null);
-              }
-              if (!cred || !cred.user) {
-                cred = await withTimeout(auth.signInAnonymously(), 6000, 'AUTH_TIMEOUT').catch(() => null);
-              }
-              currentUser = (cred && cred.user) || auth.currentUser || null;
             }
           }
 
-          // 探測 Firestore SDK 通道；若受阻則立即終止 SDK 重試並切換為 REST API 通道
-          let sdkConnected = false;
+          // 第 1 步：先以無狀態 Firestore REST API 探測連線與規則權限（不會啟動背景 backoff 迴圈）
           try {
+            await firestoreRestFetch(`${getCloudCollectionName('rooms')}?pageSize=1`, { timeoutMs: 6000 });
+          } catch (restProbeErr) {
+            if (authRestrictedByAdmin && restProbeErr && restProbeErr.code === 'permission-denied') {
+              const combinedErr = new Error('AUTH_REQUIRED_AND_DISABLED');
+              combinedErr.code = 'AUTH_REQUIRED_AND_DISABLED';
+              throw combinedErr;
+            }
+            throw restProbeErr;
+          }
+
+          // 第 2 步：嘗試啟用 Firestore SDK 即時長連線；若長連線串流被環境阻斷則立即 terminate 並切換為 REST 同步
+          let sdkReady = false;
+          try {
+            if (!db) {
+              db = firebase.firestore();
+              if (!firestoreSettingsApplied) {
+                db.settings({
+                  experimentalForceLongPolling: true,
+                  ignoreUndefinedProperties: true
+                });
+                firestoreSettingsApplied = true;
+              }
+            }
             await withTimeout(
-              db.collection(getCloudCollectionName('rooms')).limit(1).get({ source: 'server' }),
-              4500,
-              'SDK_PROBE_TIMEOUT'
+              getCloudCollection('rooms').limit(1).get({ source: 'server' }),
+              3500,
+              'SDK_STREAM_TIMEOUT'
             );
-            sdkConnected = true;
-          } catch (probeErr) {
-            sdkConnected = false;
+            sdkReady = true;
+          } catch (sdkErr) {
+            sdkReady = false;
             if (db) {
-              try { await db.terminate(); } catch (e) {}
+              // 徹底終止 SDK 實例，杜絕 Using maximum backoff delay 錯誤刷屏
+              await db.terminate().catch(() => {});
               db = null;
               firestoreSettingsApplied = false;
             }
           }
 
-          if (sdkConnected) {
-            firebaseTransport = 'sdk';
-            useFirebase = true;
-            updateFirebaseStatusUI('connected');
-          } else {
-            try {
-              await firestoreRestFetch(`${getCloudCollectionName('rooms')}?pageSize=1`, { timeoutMs: 5000 });
-              firebaseTransport = 'rest';
-              useFirebase = true;
-              updateFirebaseStatusUI('connected');
-            } catch (restErr) {
-              firebaseTransport = 'none';
-              useFirebase = false;
-              const friendly = authRestrictedByAdmin && restErr && restErr.code === 'permission-denied'
-                ? 'Firebase 後台尚未啟用「匿名登入（Anonymous）」，且 Firestore 規則要求登入驗證。請至 Firebase Console → Authentication → Sign-in method 啟用「匿名」登入後點擊重新連線。'
-                : formatFirebaseError(restErr);
-              updateFirebaseStatusUI('error', friendly);
-              appState.roomsLoadedFromCloud = true;
-              renderLobbyRooms();
-              return;
-            }
-          }
-        } catch (err) {
+          useFirebase = true;
+          firebaseTransport = sdkReady ? 'sdk' : 'rest';
+          updateFirebaseStatusUI('connected');
+        } catch (e) {
           useFirebase = false;
           firebaseTransport = 'none';
           if (db) {
-            db.terminate().catch(() => {});
+            await db.terminate().catch(() => {});
             db = null;
+            firestoreSettingsApplied = false;
           }
+          const detail = formatFirebaseError(e);
+          updateFirebaseStatusUI('error', detail);
           appState.roomsLoadedFromCloud = true;
-          updateFirebaseStatusUI('error', formatFirebaseError(err));
           renderLobbyRooms();
           return;
         }
@@ -3139,6 +3092,47 @@
             syncProfileNicknameToCloud(getMyUid(), getMyNickname());
           }
           const authUid = currentUser ? currentUser.uid : null;
+
+          userProfilesUnsubscribe = cloudSubscribeCollection(
+            'user_profiles',
+            (docs) => {
+              docs.forEach((d) => {
+                if (d && d.uid) appState.cloudProfiles[d.uid] = d;
+              });
+              recoverNicknameFromKnownData(getMyUid());
+              if (state) renderRoomMembersList();
+            },
+            () => {},
+            6000
+          );
+
+          vaultProfilesAllUnsubscribe = cloudSubscribeCollection(
+            'vault_profiles',
+            (docs) => {
+              let updated = false;
+              docs.forEach((d) => {
+                const code = normalizeVaultCode(d?.vaultCode);
+                if (code && d) {
+                  appState.vaultProfiles[code] = {
+                    ...(appState.vaultProfiles[code] || {}),
+                    ...d,
+                    wins: Math.max(0, Math.floor(Number(d.wins) || 0)),
+                    losses: Math.max(0, Math.floor(Number(d.losses) || 0))
+                  };
+                  updated = true;
+                }
+              });
+              if (updated) {
+                updateVaultAndCloudStatusUI();
+                if (state) {
+                  if (state.mode === 'match') updateMatchPanelUI();
+                  renderRoomMembersList();
+                }
+              }
+            },
+            () => {},
+            6000
+          );
 
           roomsCollectionUnsubscribe = cloudSubscribeCollection(
             'rooms',
@@ -3190,41 +3184,68 @@
                 reclaimMatchingRolesAcrossRooms(getMyUid(), getMyNickname(), getMyVaultCode());
               }
               renderLobbyRooms();
-              updateMyMatchesBadge();
               tryAutoJoinPendingRoom();
             },
             (err) => {
               updateFirebaseStatusUI('error', `讀取房間列表失敗：${formatFirebaseError(err)}`);
             },
-            12000
+            2500
           );
 
           if (appState.pendingAutoJoinRoom) {
             fetchAndJoinRemoteRoomByParam(appState.pendingAutoJoinRoom);
           }
 
-          // 大廳聊天：進入大廳時讀取一次，後續即時訊息由 AppDirectBus 直接傳遞
-          fetchLobbyChatOnce();
-          if (!state) {
-            AppDirectBus.joinLobby();
-          }
+          lobbyChatUnsubscribe = cloudSubscribeCollection(
+            'lobby_chat',
+            (list) => {
+              list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+              appState.lobbyChat = list.slice(-MAX_LOBBY_CHAT);
+              recoverNicknameFromKnownData(getMyUid());
+              renderLobbyChat();
+            },
+            () => {},
+            3000,
+            MAX_LOBBY_CHAT
+          );
         }
 
-        fetchVaultProfileOnce(getMyVaultCode());
-        if (!isFreshlyGeneratedVaultCode || hasExplicitPersistedNickname) {
+        subscribeVaultRecords(getMyVaultCode());
+        subscribeVaultProfileStats(getMyVaultCode());
+        if (needsCloudRegisterNewCharacter || !isFreshlyGeneratedVaultCode || hasExplicitPersistedNickname) {
+          needsCloudRegisterNewCharacter = false;
           syncVaultProfileToCloud(getMyVaultCode(), getMyUid(), getMyNickname());
         }
       }
 
-      async function fetchLobbyChatOnce() {
-        if (!useFirebase) return;
+      async function fetchRoomsFromCloudOnce(showFeedback = false) {
+        if (!useFirebase) {
+          if (showFeedback) showToast('⚠️ Firebase 尚未連線，正在嘗試重新連線...');
+          await initSyncBackend();
+          return;
+        }
         try {
-          const list = await cloudListDocs('lobby_chat', MAX_LOBBY_CHAT);
-          list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-          appState.lobbyChat = list.slice(-MAX_LOBBY_CHAT);
-          recoverNicknameFromKnownData(getMyUid());
-          renderLobbyChat();
-        } catch (e) {}
+          const docs = await cloudListDocs('rooms', 200);
+          const freshRooms = {};
+          docs.forEach((rawDoc) => {
+            const data = normalizeRoomFromRemote(rawDoc);
+            if (data && data.id && !data.deleted && !appState.deletedRoomIds.has(data.id)) {
+              freshRooms[data.id] = data;
+            }
+          });
+          appState.rooms = freshRooms;
+          appState.roomsLoadedFromCloud = true;
+          updateFirebaseStatusUI('connected');
+          renderLobbyRooms();
+          if (showFeedback) {
+            showToast(`✅ 已從 Firebase 同步最新房間（共 ${Object.keys(freshRooms).length} 間）`);
+          }
+        } catch (err) {
+          updateFirebaseStatusUI('error', `刷新房間失敗：${formatFirebaseError(err)}`);
+          if (showFeedback) {
+            showToast(`❌ 刷新失敗：${formatFirebaseError(err)}`, 4000);
+          }
+        }
       }
 
       function serializeRoomForStorage(room) {
@@ -3250,13 +3271,6 @@
         }
         const clean = serializeRoomForStorage(state);
         appState.rooms[state.id] = clean;
-        updateMyMatchesBadge();
-
-        // 透過 App 本身直接廣播盤面更新給房內連線棋友（零延遲）
-        AppDirectBus.broadcast({
-          type: 'room_state',
-          room: clean
-        });
 
         if (!useFirebase) {
           showToast('⚠️ Firebase 尚未連線，資料無法同步至雲端', 3500);
@@ -3275,7 +3289,6 @@
         if (!incoming || !state || incoming.id !== state.id) return;
         if (incoming.deleted || appState.deletedRoomIds.has(incoming.id)) {
           delete appState.rooms[incoming.id];
-          updateMyMatchesBadge();
           handleRemoteRoomDeleted();
           return;
         }
@@ -3283,8 +3296,6 @@
         localVersionTs = incoming.updatedAt || Date.now();
         const prevMovesLen = (state.moves || []).length;
         state = incoming;
-        appState.rooms[state.id] = serializeRoomForStorage(state);
-        updateMyMatchesBadge();
         let shouldPlayIncomingStone = true;
 
         if (state.mode === 'study') {
@@ -3481,7 +3492,7 @@
               safeSetStorage(STORAGE_KEYS.PUBLIC_BASE_URL, parsed.toString(), true);
               parsed.searchParams.set('room', roomKey);
               parsed.hash = `room=${encodeURIComponent(roomKey)}`;
-              copyTextToClipboard(parsed.toString(), '已生成並複製房間超連結！');
+              copyTextToClipboard(parsed.toString(), `已生成並複製房間超連結！`);
             },
             '設定公開網站分享網址',
             'https://你的網站網址/'
@@ -3499,16 +3510,16 @@
           const docData = await cloudGetDoc('rooms', target);
           if (docData) {
             const data = normalizeRoomFromRemote(docData);
-            if (data && data.id && !data.deleted) {
+            if (data && data.id) {
               appState.rooms[data.id] = data;
               return tryAutoJoinPendingRoom(target);
             }
           }
-          const list = await cloudListDocs('rooms', 200);
+          const docs = await cloudListDocs('rooms', 200);
           let matchedRoom = null;
-          list.forEach((rawDoc) => {
+          docs.forEach((rawDoc) => {
             const data = normalizeRoomFromRemote(rawDoc);
-            if (data && !data.deleted && (data.id === target || String(data.code) === target)) {
+            if (data && (data.id === target || String(data.code) === target)) {
               matchedRoom = data;
             }
           });
@@ -3529,7 +3540,7 @@
         }
         const roomsList = Object.values(appState.rooms || {});
         const matched = roomsList.find(
-          (r) => r && !r.deleted && (r.id === target || String(r.code) === target)
+          (r) => r && (r.id === target || String(r.code) === target)
         );
         if (matched) {
           appState.pendingAutoJoinRoom = '';
@@ -3540,182 +3551,229 @@
         return false;
       }
 
-      // ==================== 5. 遊戲大廳、我的對戰清單與 300 則大廳聊天室 ====================
+      // ==================== 5. 遊戲大廳與 300 則大廳聊天室 ====================
       function getRoomOnlineCount(room) {
         if (!room || !room.id) return 0;
+        const now = Date.now();
         const activeUids = new Set();
-        if (room.blackUid) activeUids.add(room.blackUid);
-        if (room.whiteUid) activeUids.add(room.whiteUid);
-        if (room.mode === 'study' && room.studyControllerUid) activeUids.add(room.studyControllerUid);
+
+        if (room.activeMembers && typeof room.activeMembers === 'object') {
+          Object.entries(room.activeMembers).forEach(([uid, ts]) => {
+            if (uid && typeof ts === 'number' && now - ts <= MEMBER_STALE_MS) {
+              activeUids.add(uid);
+            }
+          });
+        }
 
         if (state && state.id === room.id) {
           activeUids.add(getMyUid());
-          Object.keys(appState.roomMembers || {}).forEach((uid) => {
-            if (uid) activeUids.add(uid);
-          });
         }
+
         return activeUids.size;
       }
 
-      function getRoomRemainingClockSecondsForColor(room, color) {
-        if (!room || !room.clocks || !room.clocks[color]) return Number.POSITIVE_INFINITY;
-        if (!room.mainTime && !room.byoyomiSeconds) return Number.POSITIVE_INFINITY;
-        const c = room.clocks[color];
-        const isTurnNow = room.status === 'playing' && room.turn === color && !!room.blackUid && !!room.whiteUid;
-        const elapsed = isTurnNow ? Math.max(0, (Date.now() - (room.lastTickAt || Date.now())) / 1000) : 0;
-        if (!c.inByo) {
-          const rem = Math.max(0, (c.main || 0) - elapsed);
-          return rem > 0 ? rem : (room.byoyomiSeconds || 0);
+      // ==================== 5.1 我的對戰房間統計、角標與慢棋清單 ====================
+      function getRoomRemainingTimeInfo(room, color) {
+        if (!room || (room.mainTime === 0 && room.byoyomiSeconds === 0)) {
+          return { label: '無限', sortSeconds: Number.MAX_SAFE_INTEGER };
         }
-        return Math.max(0, (c.byoLeft || 0) - elapsed);
+        const rawClock = room.clocks && room.clocks[color]
+          ? { ...room.clocks[color] }
+          : { main: room.mainTime || 0, byoLeft: room.byoyomiSeconds || 0, periodsLeft: room.byoyomiPeriods || 0, inByo: false };
+
+        const isRunning = room.status === 'playing' && room.turn === color && !!room.blackUid && !!room.whiteUid;
+        const elapsed = isRunning ? Math.max(0, (Date.now() - (room.lastTickAt || Date.now())) / 1000) : 0;
+
+        if (!rawClock.inByo) {
+          if (rawClock.main > elapsed) {
+            const rem = rawClock.main - elapsed;
+            return { label: `剩 ${formatSeconds(rem)}`, sortSeconds: rem };
+          }
+          const overflow = elapsed - rawClock.main;
+          if (!room.byoyomiSeconds || !room.byoyomiPeriods) {
+            return { label: '已超時', sortSeconds: 0 };
+          }
+          const used = Math.floor(overflow / room.byoyomiSeconds);
+          if (used >= rawClock.periodsLeft) {
+            return { label: '已超時', sortSeconds: 0 };
+          }
+          const remByo = room.byoyomiSeconds - (overflow % room.byoyomiSeconds);
+          const remPeriods = rawClock.periodsLeft - used;
+          return {
+            label: `讀秒 ${formatSeconds(remByo)} (${remPeriods}次)`,
+            sortSeconds: remByo + (remPeriods - 1) * room.byoyomiSeconds
+          };
+        } else {
+          if (!room.byoyomiSeconds || !room.byoyomiPeriods) {
+            return { label: '已超時', sortSeconds: 0 };
+          }
+          const used = Math.floor(elapsed / room.byoyomiSeconds);
+          if (used >= rawClock.periodsLeft) {
+            return { label: '已超時', sortSeconds: 0 };
+          }
+          const remByo = room.byoyomiSeconds - (elapsed % room.byoyomiSeconds);
+          const remPeriods = rawClock.periodsLeft - used;
+          return {
+            label: `讀秒 ${formatSeconds(remByo)} (${remPeriods}次)`,
+            sortSeconds: remByo + (remPeriods - 1) * room.byoyomiSeconds
+          };
+        }
       }
 
-      function getMyActiveMatchRooms() {
+      function getMyMatchRooms() {
         const myUid = getMyUid();
         const myVault = getMyVaultCode();
-        const items = [];
+        const now = Date.now();
+        const combinedMap = { ...(appState.rooms || {}) };
+        if (state && state.id && !state.deleted && !appState.deletedRoomIds.has(state.id)) {
+          combinedMap[state.id] = state;
+        }
 
-        Object.values(appState.rooms || {}).forEach((r) => {
-          if (!r || r.deleted || appState.deletedRoomIds.has(r.id) || r.mode !== 'match') return;
-          const isBlack = (r.blackUid && r.blackUid === myUid) || (myVault && r.blackVaultCode === myVault);
-          const isWhite = (r.whiteUid && r.whiteUid === myUid) || (myVault && r.whiteVaultCode === myVault);
+        const items = [];
+        Object.values(combinedMap).forEach((r) => {
+          if (!r || r.mode !== 'match' || r.deleted || appState.deletedRoomIds.has(r.id)) return;
+          const isBlack = r.blackUid === myUid || (r.blackVaultCode && myVault && r.blackVaultCode === myVault);
+          const isWhite = r.whiteUid === myUid || (r.whiteVaultCode && myVault && r.whiteVaultCode === myVault);
           if (!isBlack && !isWhite) return;
 
           const myColor = isBlack ? 'B' : 'W';
-          const opponentName = isBlack ? (r.whiteName || '等待入座') : (r.blackName || '等待入座');
-          const hasBothPlayers = !!r.blackUid && !!r.whiteUid;
-          const isFinished = r.status === 'finished';
-          const isWaitingSeat = !isFinished && !hasBothPlayers;
-          const isMyTurn = !isFinished && hasBothPlayers && r.turn === myColor;
-          const remSec = getRoomRemainingClockSecondsForColor(r, myColor);
+          const lastAct = r.lastActivityAt || r.createdAt || now;
+          if (r.status === 'finished' && now - lastAct > 7 * DAY_24_MS) return;
 
-          let priority = 3; // 等待對手落子
-          if (isMyTurn) priority = 1; // 輪到我落子（最優先）
-          else if (isWaitingSeat) priority = 2; // 等待對手入座
-          else if (isFinished) priority = 4; // 已終局
+          let category = 'opp_turn';
+          let priority = 2;
+          if (r.status === 'finished') {
+            category = 'finished';
+            priority = 4;
+          } else if (!r.blackUid || !r.whiteUid || r.status === 'waiting') {
+            category = 'waiting_seat';
+            priority = 3;
+          } else if (r.turn === myColor) {
+            category = 'my_turn';
+            priority = 1;
+          } else {
+            category = 'opp_turn';
+            priority = 2;
+          }
 
+          const clockInfo = getRoomRemainingTimeInfo(r, myColor);
           items.push({
             room: r,
             myColor,
-            opponentName,
-            isMyTurn,
-            isWaitingSeat,
-            isFinished,
+            category,
             priority,
-            remSec
+            clockInfo,
+            lastAct
           });
         });
 
         items.sort((a, b) => {
           if (a.priority !== b.priority) return a.priority - b.priority;
-          if (a.isMyTurn && b.isMyTurn && a.remSec !== b.remSec) {
-            return a.remSec - b.remSec;
+          if (a.category === 'my_turn' && a.clockInfo.sortSeconds !== b.clockInfo.sortSeconds) {
+            return a.clockInfo.sortSeconds - b.clockInfo.sortSeconds;
           }
-          return (b.room.lastActivityAt || b.room.createdAt || 0) - (a.room.lastActivityAt || a.room.createdAt || 0);
+          return b.lastAct - a.lastAct;
         });
 
         return items;
       }
 
-      function updateMyMatchesBadge() {
-        const items = getMyActiveMatchRooms();
-        const myTurnCount = items.filter((it) => it.isMyTurn).length;
+      function updateMyMatchesBadgeAndModal() {
+        const items = getMyMatchRooms();
+        const myTurnCount = items.filter((item) => item.category === 'my_turn').length;
+        const badgeText = myTurnCount > 99 ? '99+' : String(myTurnCount);
 
         ['my-matches-badge-lobby', 'my-matches-badge-room'].forEach((id) => {
-          const badge = document.getElementById(id);
-          if (!badge) return;
+          const el = document.getElementById(id);
+          if (!el) return;
           if (myTurnCount > 0) {
-            badge.textContent = myTurnCount > 99 ? '99+' : String(myTurnCount);
-            badge.classList.remove('hidden');
+            el.textContent = badgeText;
+            el.classList.remove('hidden');
           } else {
-            badge.classList.add('hidden');
+            el.classList.add('hidden');
           }
         });
 
         const modal = document.getElementById('my-matches-modal');
         if (modal && !modal.classList.contains('hidden')) {
-          renderMyMatchesModalList();
+          renderMyMatchesModalList(items);
         }
       }
 
-      function renderMyMatchesModalList() {
+      function openMyMatchesModal() {
+        const items = getMyMatchRooms();
+        renderMyMatchesModalList(items);
+        document.getElementById('my-matches-modal')?.classList.remove('hidden');
+      }
+
+      function renderMyMatchesModalList(precomputedItems = null) {
         const listEl = document.getElementById('my-matches-list');
         const summaryEl = document.getElementById('my-matches-modal-summary');
         if (!listEl) return;
 
-        const items = getMyActiveMatchRooms();
-        const myTurnCount = items.filter((it) => it.isMyTurn).length;
+        const items = precomputedItems || getMyMatchRooms();
+        const myTurnCount = items.filter((item) => item.category === 'my_turn').length;
         if (summaryEl) {
-          summaryEl.textContent = `${myTurnCount} 盤輪到您`;
+          summaryEl.textContent = `${myTurnCount} 盤待落子 · 共 ${items.length} 盤`;
         }
 
         if (!items.length) {
           listEl.innerHTML = `
-            <div class="p-6 text-center rounded-2xl bg-white border border-dashed border-stone-300 text-stone-500 text-xs sm:text-sm">
-              目前沒有您正在參與的對戰房間。<br/>建立新對弈房或入座後，所有進行中的對局都會集中顯示在此！
+            <div class="p-8 text-center rounded-2xl bg-white border border-dashed border-stone-300 text-stone-500 text-xs sm:text-sm space-y-1">
+              <div class="font-bold text-stone-700">目前沒有參與中的對弈房間</div>
+              <div class="text-[11px]">在大廳建立或入座對弈房間後，即可在此隨時切換並查看輪到落子狀態！</div>
             </div>`;
           return;
         }
 
-        listEl.innerHTML = items.map((item) => {
-          const r = item.room;
-          const isCurrent = state && state.id === r.id;
+        listEl.innerHTML = items.map(({ room: r, myColor, category, clockInfo }) => {
+          const isCurrentRoom = state && state.id === r.id;
           const moveCount = (r.moves || []).length;
-          const colorBadge = item.myColor === 'B'
-            ? '<span class="px-1.5 py-0.5 rounded bg-stone-900 text-amber-300 text-[10px] font-bold">● 執黑</span>'
-            : '<span class="px-1.5 py-0.5 rounded bg-stone-100 border border-stone-300 text-stone-800 text-[10px] font-bold">○ 執白</span>';
+          const myColorText = myColor === 'B' ? '● 執黑' : '○ 執白';
+          const oppName = myColor === 'B' ? (r.whiteName || '等待入座...') : (r.blackName || '等待入座...');
 
-          let statusPill = '';
           let cardClass = 'bg-white border-stone-200 hover:border-amber-500';
-          if (item.isMyTurn) {
-            statusPill = '<span class="px-2 py-0.5 rounded-full bg-emerald-500 text-stone-950 text-[11px] font-black shrink-0">🟢 輪到您落子</span>';
-            cardClass = 'bg-emerald-50/80 border-2 border-emerald-500 hover:bg-emerald-50';
-          } else if (item.isWaitingSeat) {
-            statusPill = '<span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[11px] font-bold shrink-0">🪑 等待對手入座</span>';
-          } else if (item.isFinished) {
-            statusPill = '<span class="px-2 py-0.5 rounded-full bg-stone-200 text-stone-700 text-[11px] font-bold shrink-0">🏁 已終局</span>';
+          let statusHtml = '';
+          if (category === 'my_turn') {
+            cardClass = 'bg-emerald-50/80 border-emerald-400 hover:border-emerald-500 shadow-xs';
+            statusHtml = `
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[11px] font-bold shrink-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                <span>輪到您落子</span>
+              </span>`;
+          } else if (category === 'opp_turn') {
+            statusHtml = `<span class="px-2 py-0.5 rounded-full bg-stone-200/90 text-stone-700 text-[11px] font-bold shrink-0">⏳ 等待對手</span>`;
+          } else if (category === 'waiting_seat') {
+            statusHtml = `<span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[11px] font-bold shrink-0">🪑 等待入座</span>`;
           } else {
-            statusPill = '<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[11px] font-bold shrink-0">⏳ 等待對手</span>';
+            const winText = r.result ? (r.result.winner === myColor ? '勝' : '負') : '終局';
+            statusHtml = `<span class="px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 text-[11px] font-bold shrink-0">🏁 已結束 (${winText})</span>`;
           }
 
-          const timeLabel = Number.isFinite(item.remSec) ? ` · 剩 ${formatSeconds(item.remSec)}` : '';
-
           return `
-            <div data-jump-match-room="${escapeHtml(r.id)}" class="cursor-pointer rounded-xl border p-3 shadow-2xs transition space-y-1.5 ${cardClass}">
+            <div data-jump-match-room="${escapeHtml(r.id)}" class="cursor-pointer rounded-2xl border-2 p-3 transition flex flex-col gap-1.5 ${cardClass}">
               <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center gap-1.5 min-w-0">
-                  ${colorBadge}
-                  <span class="font-bold text-xs sm:text-sm text-stone-900 truncate">${escapeHtml(r.title || '圍棋對弈室')}</span>
-                  ${isCurrent ? '<span class="px-1.5 py-0.5 rounded bg-stone-800 text-white text-[10px] font-bold shrink-0">目前房間</span>' : ''}
+                  ${statusHtml}
+                  <span class="text-[11px] font-bold text-stone-500 shrink-0">${r.boardSize || 19}路 · #${escapeHtml(r.code || '')}</span>
+                  ${isCurrentRoom ? '<span class="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-bold shrink-0">目前房間</span>' : ''}
                 </div>
-                ${statusPill}
+                <span class="text-xs font-bold text-amber-700 shrink-0">${isCurrentRoom ? '檢視中' : '進入 →'}</span>
               </div>
-              <div class="flex items-center justify-between gap-2 text-[11px] text-stone-600">
-                <span class="truncate">對手：<strong>${escapeHtml(item.opponentName)}</strong> · ${r.boardSize || 19}路 #${escapeHtml(r.code || '')}</span>
-                <span class="font-semibold shrink-0">第 ${moveCount} 手${timeLabel}</span>
+              <div class="font-bold text-sm text-stone-900 truncate">${escapeHtml(r.title || '圍棋對弈室')}</div>
+              <div class="flex items-center justify-between gap-2 text-xs text-stone-600 pt-1 border-t border-stone-200/70">
+                <span class="truncate font-medium">${myColorText} vs ${escapeHtml(oppName)}</span>
+                <span class="text-[11px] font-mono font-bold text-stone-700 shrink-0">第 ${moveCount} 手 · ${escapeHtml(clockInfo.label)}</span>
               </div>
             </div>`;
         }).join('');
       }
 
-      function openMyMatchesModal() {
-        renderMyMatchesModalList();
-        document.getElementById('my-matches-modal')?.classList.remove('hidden');
-      }
-
       function renderLobbyRooms() {
+        updateMyMatchesBadgeAndModal();
         const grid = document.getElementById('lobby-rooms-grid');
         const label = document.getElementById('lobby-rooms-count-label');
         if (!grid || !label) return;
-
-        if (!appState.roomsLoadedFromCloud && useFirebase) {
-          label.textContent = '連線 Firebase 載入房間中...';
-          grid.innerHTML = `
-            <div class="col-span-full p-8 text-center rounded-2xl bg-white border border-stone-200 text-stone-500 text-xs sm:text-sm">
-              ⏳ 正在從 Firebase 讀取最新房間列表...
-            </div>`;
-          return;
-        }
 
         const now = Date.now();
         const rawQ = appState.searchQuery.trim();
@@ -3741,14 +3799,18 @@
 
         list.sort((a, b) => (b.lastActivityAt || b.createdAt || 0) - (a.lastActivityAt || a.createdAt || 0));
 
-        label.textContent = q
-          ? `Firebase 搜尋結果：共 ${list.length} 間房間`
-          : `Firebase 目前活躍房間：${list.length} 間`;
+        if (!appState.roomsLoadedFromCloud && useFirebase) {
+          label.textContent = '正在從 Firebase 載入房間...';
+        } else {
+          label.textContent = q
+            ? `搜尋結果：共 ${list.length} 間雲端房間`
+            : `Firebase 線上活躍房間：${list.length} 間`;
+        }
 
         if (!list.length) {
           grid.innerHTML = `
             <div class="col-span-full p-8 text-center rounded-2xl bg-white border border-dashed border-stone-300 text-stone-500 text-xs sm:text-sm">
-              ${q ? '找不到符合條件的房間，若是房號或房間連結可點擊右側「立即進房 →」嘗試連線！' : 'Firebase 目前尚無活躍房間，點擊右上角「＋ 建立房間」立即開局或研究！'}
+              ${q ? '找不到符合條件的雲端房間，若是房號或房間連結可點擊右側「立即進房 →」嘗試連線！' : 'Firebase 雲端目前尚無活躍房間，點擊右上角「＋ 建立房間」立即在雲端開局！'}
             </div>`;
           return;
         }
@@ -3764,13 +3826,13 @@
 
           let statusBadge = '';
           if (isStudy) {
-            statusBadge = '<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">🔬 擺盤研究</span>';
+            statusBadge = `<span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">🔬 擺盤研究</span>`;
           } else if (r.status === 'finished') {
-            statusBadge = '<span class="px-2 py-0.5 rounded-full bg-stone-200 text-stone-700 text-[11px] font-bold">已終局</span>';
+            statusBadge = `<span class="px-2 py-0.5 rounded-full bg-stone-200 text-stone-700 text-[11px] font-bold">已終局</span>`;
           } else if (r.blackUid && r.whiteUid) {
-            statusBadge = '<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold">⚔️ 對弈中</span>';
+            statusBadge = `<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold">⚔️ 對弈中</span>`;
           } else {
-            statusBadge = '<span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[11px] font-bold">🪑 等待入座</span>';
+            statusBadge = `<span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[11px] font-bold">🪑 等待入座</span>`;
           }
 
           const playersInfo = isStudy
@@ -3799,7 +3861,7 @@
                 <div class="flex items-center gap-2 min-w-0">
                   <span class="inline-flex items-center gap-1 font-semibold shrink-0 ${memberCount > 0 ? 'text-emerald-700' : 'text-stone-400'}">
                     <span class="w-1.5 h-1.5 rounded-full ${memberCount > 0 ? 'bg-emerald-500' : 'bg-stone-300'}"></span>
-                    <span>${memberCount} 人就座</span>
+                    <span>${memberCount} 人</span>
                   </span>
                   <span class="text-stone-300">|</span>
                   <span class="truncate">進度：第 ${moveCount} 手</span>
@@ -3833,12 +3895,6 @@
           removedIds = removed.map((m) => m.id);
         }
         renderLobbyChat();
-
-        // 由 App 直接傳遞給大廳在線棋友，同時寫入 Firebase 供新進入者讀取
-        AppDirectBus.broadcast({
-          type: 'lobby_message',
-          msg
-        });
 
         cloudSetDoc('lobby_chat', msg.id, msg).catch((err) => {
           showToast(`⚠️ 大廳留言發送失敗：${formatFirebaseError(err)}`);
@@ -3876,7 +3932,7 @@
         if (atBottom) box.scrollTop = box.scrollHeight;
       }
 
-      // ==================== 6. 房間建立、進入、離開與刪房（強制於 Firebase 執行，無本地快取） ====================
+      // ==================== 6. 房間建立、進入、離開與刪房 ====================
       function openCreateModal() {
         const titleInput = document.getElementById('create-room-title-input');
         if (titleInput) {
@@ -3893,19 +3949,18 @@
           e.stopPropagation();
         }
         if (isCreatingRoom) return;
-        if (!useFirebase) {
-          showToast('⚠️ Firebase 尚未連線，無法建立房間（請先確認網路或點擊上方「重新連線」）', 4000);
-          return;
-        }
-
         isCreatingRoom = true;
-        const confirmBtn = document.getElementById('confirm-create-room-btn');
-        if (confirmBtn) {
-          confirmBtn.disabled = true;
-          confirmBtn.textContent = '⏳ 建立至 Firebase 中...';
+        const createBtn = document.getElementById('confirm-create-room-btn');
+        const originalBtnText = createBtn ? createBtn.textContent : '立即建立';
+        if (createBtn) {
+          createBtn.disabled = true;
+          createBtn.textContent = '⏳ 建立至 Firebase 中...';
         }
 
         try {
+          if (!useFirebase) {
+            throw new Error('Firebase 雲端資料庫尚未連線，請確認網路狀態後重試');
+          }
           const mode = appState.createDraft.mode || 'match';
           const boardSize = Number(appState.createDraft.size) || 19;
           const rawTitle = document.getElementById('create-room-title-input')?.value.trim();
@@ -3937,6 +3992,7 @@
             createdAt: now,
             updatedAt: now,
             lastActivityAt: now,
+            activeMembers: { [myUid]: now },
             status: 'waiting',
             blackUid: mode === 'match' && seat === 'B' ? myUid : null,
             blackVaultCode: mode === 'match' && seat === 'B' ? myVault : null,
@@ -3977,6 +4033,7 @@
             }
           };
 
+          // 嚴格等待 Firebase 寫入成功，不使用任何本地快取
           const firestoreDoc = serializeRoomForFirestore(newRoom);
           await cloudSetDoc('rooms', roomId, firestoreDoc);
 
@@ -3987,21 +4044,17 @@
           isFreshlyGeneratedVaultCode = false;
           safeSetStorage(STORAGE_KEYS.VAULT_CODE, myVault, true);
           syncVaultProfileToCloud(myVault, myUid, myName);
-          updateMyMatchesBadge();
-
           closeAllModals();
           enterRoom(roomId);
-          showToast(`✅ 已成功在 Firebase 建立房間 #${code}`);
+          showToast('✅ 已在 Firebase 成功建立房間！');
         } catch (err) {
-          console.error('Firebase 建立房間失敗:', err);
-          const reason = formatFirebaseError(err);
-          updateFirebaseStatusUI('error', `建立房間失敗：${reason}`);
-          showToast(`❌ Firebase 建立房間失敗：${reason}`, 4500);
+          console.error('建立房間失敗:', err);
+          showToast(`❌ 建立房間失敗：${formatFirebaseError(err)}`, 4500);
         } finally {
           isCreatingRoom = false;
-          if (confirmBtn) {
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = '立即建立';
+          if (createBtn) {
+            createBtn.disabled = false;
+            createBtn.textContent = originalBtnText;
           }
         }
       }
@@ -4080,16 +4133,16 @@
         document.getElementById('room-view')?.classList.remove('hidden');
         document.getElementById('header-room-bar')?.classList.remove('hidden');
 
-        AppDirectBus.joinRoom(roomId);
         subscribeToRoomRealtime(roomId);
-        updateMyMatchesBadge();
+        startRoomPresenceHeartbeat(roomId);
         updateAllRoomUI();
         setTimeout(resizeAndDrawBoard, 30);
       }
 
       function leaveRoom() {
         const wasPresenter = state && state.mode === 'study' && isStudyPresenter();
-        AppDirectBus.leave();
+        const leavingRoomId = state ? state.id : null;
+        stopRoomPresenceHeartbeat(leavingRoomId);
         stopCurrentVoicePlayback();
         appState.spectatorLocalStudy = null;
         appState.spectatorLocalMatch = null;
@@ -4098,6 +4151,14 @@
         if (roomUnsubscribe) {
           roomUnsubscribe();
           roomUnsubscribe = null;
+        }
+        if (roomChatUnsubscribe) {
+          roomChatUnsubscribe();
+          roomChatUnsubscribe = null;
+        }
+        if (roomMembersUnsubscribe) {
+          roomMembersUnsubscribe();
+          roomMembersUnsubscribe = null;
         }
         renderedRoomChatIds.clear();
         state = null;
@@ -4109,8 +4170,6 @@
         document.getElementById('header-room-bar')?.classList.add('hidden');
         document.getElementById('lobby-view')?.classList.remove('hidden');
         document.getElementById('header-lobby-bar')?.classList.remove('hidden');
-        AppDirectBus.joinLobby();
-        fetchRoomsFromCloudOnce(false);
         renderLobbyRooms();
 
         if (wasPresenter) {
@@ -4125,9 +4184,9 @@
           return;
         }
         openCustomConfirm(
-          '確定要從 Firebase 刪除此房間嗎？所有在場棋友將返回大廳。',
+          '確定要從 Firebase 雲端永久刪除此房間嗎？所有在場棋友將返回大廳。',
           () => deleteRoomById(state.id),
-          '刪除房間'
+          '刪除雲端房間'
         );
       }
 
@@ -4138,7 +4197,7 @@
           return;
         }
         if (!useFirebase) {
-          showToast('⚠️ Firebase 尚未連線，無法刪除雲端房間');
+          showToast('❌ Firebase 尚未連線，無法刪除雲端房間');
           return;
         }
 
@@ -4147,45 +4206,30 @@
 
           appState.deletedRoomIds.add(roomId);
           delete appState.rooms[roomId];
-          updateMyMatchesBadge();
 
           if (state && state.id === roomId) {
-            showToast('🗑️ 已從 Firebase 刪除房間');
+            showToast('✅ 已從 Firebase 刪除房間');
             leaveRoom();
           } else {
             renderLobbyRooms();
-            showToast('🗑️ 已從 Firebase 刪除房間');
+            showToast('✅ 已從 Firebase 刪除房間');
           }
         } catch (err) {
-          console.error('Firebase 刪除房間失敗:', err);
-          showToast(`❌ Firebase 刪除房間失敗：${formatFirebaseError(err)}`, 4000);
+          console.error('刪除房間失敗:', err);
+          showToast(`❌ 刪除房間失敗：${formatFirebaseError(err)}`, 4500);
         }
       }
 
       function handleRemoteRoomDeleted() {
         if (!state) return;
-        showToast('房主已從雲端刪除此房間');
+        showToast('房主已刪除並關閉此房間');
         leaveRoom();
-      }
-
-      async function fetchRoomMessagesOnce(roomId, showFeedback = false) {
-        if (!useFirebase || !roomId) return;
-        try {
-          const msgs = await cloudQueryByField('room_messages', 'roomId', roomId, 200);
-          msgs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-          msgs.slice(-150).forEach((m) => appendRoomChatMessage(m, false));
-          if (showFeedback) {
-            showToast(`🔄 已從 Firebase 同步歷史訊息（共 ${msgs.length} 則）`);
-          }
-        } catch (err) {
-          if (showFeedback) {
-            showToast(`⚠️ 同步歷史訊息失敗：${formatFirebaseError(err)}`);
-          }
-        }
       }
 
       function subscribeToRoomRealtime(roomId) {
         if (roomUnsubscribe) roomUnsubscribe();
+        if (roomChatUnsubscribe) roomChatUnsubscribe();
+        if (roomMembersUnsubscribe) roomMembersUnsubscribe();
         renderedRoomChatIds.clear();
         const chatBox = document.getElementById('room-chat-messages');
         if (chatBox) chatBox.innerHTML = '';
@@ -4208,17 +4252,80 @@
             (err) => {
               showToast(`⚠️ 房間同步異常：${formatFirebaseError(err)}`);
             },
-            4000
+            1200
           );
 
-          // 僅在第一次進房時向 Firebase 讀取歷史語音、註釋與聊天訊息；進房後的即時訊息皆由 AppDirectBus 直傳，不再查詢 Firebase
-          fetchRoomMessagesOnce(roomId, false);
+          roomChatUnsubscribe = cloudSubscribeCollection(
+            'room_messages',
+            (allMsgs) => {
+              const msgs = allMsgs.filter((d) => d && d.roomId === roomId);
+              msgs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+              msgs.slice(-150).forEach((m) => appendRoomChatMessage(m, true));
+            },
+            () => {},
+            2000,
+            200
+          );
+
+          roomMembersUnsubscribe = cloudSubscribeCollection(
+            'room_members',
+            (allMembers) => {
+              const membersMap = {};
+              allMembers.forEach((m) => {
+                if (m && m.roomId === roomId && m.uid) membersMap[m.uid] = m;
+              });
+              appState.roomMembers = membersMap;
+              renderRoomMembersList();
+            },
+            () => {},
+            5000,
+            100
+          );
+        } else {
+          renderRoomMembersList();
         }
-        renderRoomMembersList();
       }
 
-      // ==================== 6.5 房內在線成員列表（純 App 端對端連線狀態，零 Firebase 心跳讀寫） ====================
-      function updateMyRoomPresence(roomId) {
+      // ==================== 6.5 房內在線成員列表與即時心跳同步（純 Firebase） ====================
+      function startRoomPresenceHeartbeat(roomId) {
+        if (roomPresenceTimer) clearInterval(roomPresenceTimer);
+        updateMyRoomPresence(roomId, true);
+        roomPresenceTimer = setInterval(() => {
+          if (!state || state.id !== roomId) return;
+          updateMyRoomPresence(roomId, true);
+          renderRoomMembersList();
+        }, MEMBER_HEARTBEAT_MS);
+      }
+
+      function stopRoomPresenceHeartbeat(roomId) {
+        if (roomPresenceTimer) {
+          clearInterval(roomPresenceTimer);
+          roomPresenceTimer = null;
+        }
+        if (!roomId) return;
+        const myUid = getMyUid();
+
+        const targetRoom = appState.rooms[roomId];
+        if (targetRoom && targetRoom.activeMembers && targetRoom.activeMembers[myUid]) {
+          delete targetRoom.activeMembers[myUid];
+        }
+
+        if (useFirebase) {
+          cloudDeleteDoc('room_members', `${roomId}_${myUid}`).catch(() => {});
+          if (!appState.deletedRoomIds.has(roomId)) {
+            if (firebaseTransport === 'sdk' && db && typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) {
+              getCloudCollection('rooms')
+                .doc(roomId)
+                .update({ [`activeMembers.${myUid}`]: firebase.firestore.FieldValue.delete() })
+                .catch(() => {});
+            } else if (targetRoom && targetRoom.activeMembers) {
+              cloudSetDoc('rooms', roomId, { activeMembers: targetRoom.activeMembers }, { merge: true, fieldPaths: ['activeMembers'] }).catch(() => {});
+            }
+          }
+        }
+      }
+
+      function updateMyRoomPresence(roomId, syncCloud = true) {
         if (!roomId) return;
         const myUid = getMyUid();
         const myVault = getMyVaultCode();
@@ -4232,10 +4339,24 @@
           lastSeenAt: now
         };
         appState.roomMembers[myUid] = entry;
-        AppDirectBus.broadcast({
-          type: 'peer_hello',
-          peerInfo: entry
-        });
+
+        if (state && state.id === roomId) {
+          if (!state.activeMembers || typeof state.activeMembers !== 'object') {
+            state.activeMembers = {};
+          }
+          state.activeMembers[myUid] = now;
+        }
+        if (appState.rooms[roomId]) {
+          if (!appState.rooms[roomId].activeMembers || typeof appState.rooms[roomId].activeMembers !== 'object') {
+            appState.rooms[roomId].activeMembers = {};
+          }
+          appState.rooms[roomId].activeMembers[myUid] = now;
+        }
+
+        if (syncCloud && useFirebase && !appState.deletedRoomIds.has(roomId)) {
+          cloudSetDoc('room_members', `${roomId}_${myUid}`, entry, { merge: true }).catch(() => {});
+          cloudSetDoc('rooms', roomId, { activeMembers: { [myUid]: now } }, { merge: true, fieldPaths: [`activeMembers.${myUid}`] }).catch(() => {});
+        }
       }
 
       function renderRoomMembersList() {
@@ -4263,39 +4384,18 @@
         };
 
         if (state.mode === 'match') {
-          if (state.blackUid) {
-            merged[state.blackUid] = {
-              ...(merged[state.blackUid] || {}),
-              roomId: state.id,
-              uid: state.blackUid,
-              vaultCode: state.blackVaultCode || merged[state.blackUid]?.vaultCode || '',
-              name: state.blackName || merged[state.blackUid]?.name || '執黑棋友',
-              joinedAt: merged[state.blackUid]?.joinedAt || now,
-              lastSeenAt: now
-            };
+          if (state.blackUid && merged[state.blackUid]) {
+            if (state.blackName) merged[state.blackUid].name = state.blackName;
+            if (state.blackVaultCode) merged[state.blackUid].vaultCode = state.blackVaultCode;
           }
-          if (state.whiteUid) {
-            merged[state.whiteUid] = {
-              ...(merged[state.whiteUid] || {}),
-              roomId: state.id,
-              uid: state.whiteUid,
-              vaultCode: state.whiteVaultCode || merged[state.whiteUid]?.vaultCode || '',
-              name: state.whiteName || merged[state.whiteUid]?.name || '執白棋友',
-              joinedAt: merged[state.whiteUid]?.joinedAt || now,
-              lastSeenAt: now
-            };
+          if (state.whiteUid && merged[state.whiteUid]) {
+            if (state.whiteName) merged[state.whiteUid].name = state.whiteName;
+            if (state.whiteVaultCode) merged[state.whiteUid].vaultCode = state.whiteVaultCode;
           }
         } else if (state.mode === 'study') {
-          if (state.studyControllerUid) {
-            merged[state.studyControllerUid] = {
-              ...(merged[state.studyControllerUid] || {}),
-              roomId: state.id,
-              uid: state.studyControllerUid,
-              vaultCode: state.studyControllerVaultCode || merged[state.studyControllerUid]?.vaultCode || '',
-              name: state.studyControllerName || merged[state.studyControllerUid]?.name || '主講人',
-              joinedAt: merged[state.studyControllerUid]?.joinedAt || now,
-              lastSeenAt: now
-            };
+          if (state.studyControllerUid && merged[state.studyControllerUid]) {
+            if (state.studyControllerName) merged[state.studyControllerUid].name = state.studyControllerName;
+            if (state.studyControllerVaultCode) merged[state.studyControllerUid].vaultCode = state.studyControllerVaultCode;
           }
         }
         if (state.hostUid && merged[state.hostUid] && state.hostVaultCode && !merged[state.hostUid].vaultCode) {
@@ -4370,7 +4470,7 @@
 
       window.addEventListener('beforeunload', () => {
         if (state && state.id) {
-          AppDirectBus.leave();
+          stopRoomPresenceHeartbeat(state.id);
         }
       });
 
@@ -4500,20 +4600,8 @@
         };
 
         appendRoomChatMessage(msg, false);
+        persistCurrentRoomAndSync(true);
 
-        // 1. 由 App 本身直接傳遞給房內所有在線棋友（不經過 Firebase 推送）
-        AppDirectBus.broadcast({
-          type: 'room_message',
-          msg,
-          peerInfo: {
-            uid: getMyUid(),
-            vaultCode: getMyVaultCode(),
-            name: getMyNickname(),
-            joinedAt: myRoomJoinedAt || Date.now()
-          }
-        });
-
-        // 2. 存入 Firebase 供後續新進入房間的棋友初次進房取得
         if (useFirebase) {
           cloudSetDoc('room_messages', msg.id, msg).catch(() => {});
         }
@@ -4684,20 +4772,8 @@
         };
 
         appendRoomChatMessage(msg, false);
+        persistCurrentRoomAndSync(true);
 
-        // 1. 由 App 本身直接傳遞語音講解給房內在線棋友（不經過 Firebase 推送）
-        AppDirectBus.broadcast({
-          type: 'room_message',
-          msg,
-          peerInfo: {
-            uid: getMyUid(),
-            vaultCode: getMyVaultCode(),
-            name: getMyNickname(),
-            joinedAt: myRoomJoinedAt || Date.now()
-          }
-        });
-
-        // 2. 存入 Firebase 保存，供後續新進入房間的棋友初次進房取得
         if (useFirebase) {
           cloudSetDoc('room_messages', msg.id, msg).catch(() => {});
         }
@@ -4708,6 +4784,10 @@
         if (!state) return;
         const text = String(rawText || '').trim().slice(0, 200);
         if (!text) return;
+        if (!useFirebase) {
+          showToast('⚠️ Firebase 尚未連線，無法發送訊息');
+          return;
+        }
         const msg = {
           id: generateId('rc'),
           roomId: state.id,
@@ -4718,25 +4798,11 @@
         };
 
         appendRoomChatMessage(msg, false);
+        persistCurrentRoomAndSync(true);
 
-        // 1. 由 App 本身直接傳遞聊天訊息給房內在線棋友（不經過 Firebase 推送）
-        AppDirectBus.broadcast({
-          type: 'room_message',
-          msg,
-          peerInfo: {
-            uid: getMyUid(),
-            vaultCode: getMyVaultCode(),
-            name: getMyNickname(),
-            joinedAt: myRoomJoinedAt || Date.now()
-          }
+        cloudSetDoc('room_messages', msg.id, msg).catch((err) => {
+          showToast(`⚠️ 房內訊息發送失敗：${formatFirebaseError(err)}`);
         });
-
-        // 2. 存入 Firebase 保存，供後續新進入房間的棋友初次進房取得
-        if (useFirebase) {
-          cloudSetDoc('room_messages', msg.id, msg).catch((err) => {
-            showToast(`⚠️ 聊天存檔失敗：${formatFirebaseError(err)}`);
-          });
-        }
       }
 
       function appendRoomChatMessage(msg, isIncoming = true) {
@@ -4829,10 +4895,6 @@
           createdAt: Date.now()
         };
         appendRoomChatMessage(msg, false);
-        AppDirectBus.broadcast({
-          type: 'room_message',
-          msg
-        });
         if (useFirebase) {
           cloudSetDoc('room_messages', msg.id, msg).catch(() => {});
         }
@@ -4854,39 +4916,57 @@
           showToast('本局已結束，請先點擊「開新棋局」開放席位');
           return;
         }
+        if (!useFirebase) {
+          showToast('❌ Firebase 尚未連線，無法入座');
+          return;
+        }
         const uid = getMyUid();
         const vault = getMyVaultCode();
         const name = getMyNickname();
 
-        if (useFirebase && firebaseTransport === 'sdk' && db) {
-          const docRef = getCloudCollection('rooms').doc(state.id);
-          db.runTransaction(async (tx) => {
-            const snap = await tx.get(docRef);
-            if (!snap.exists) throw new Error('ROOM_MISSING');
-            const data = snap.data();
+        const executeSeatClaim = async () => {
+          if (firebaseTransport === 'sdk' && db) {
+            const docRef = getCloudCollection('rooms').doc(state.id);
+            return db.runTransaction(async (tx) => {
+              const snap = await tx.get(docRef);
+              if (!snap.exists) throw new Error('ROOM_MISSING');
+              const data = snap.data();
+              if (data.status === 'finished') throw new Error('FINISHED');
+              const isMyBlack = data.blackUid === uid || (data.blackVaultCode && vault && data.blackVaultCode === vault);
+              const isMyWhite = data.whiteUid === uid || (data.whiteVaultCode && vault && data.whiteVaultCode === vault);
+              if (color === 'B') {
+                if (data.blackUid && !isMyBlack) throw new Error('TAKEN');
+                if (isMyWhite) { data.whiteUid = null; data.whiteVaultCode = null; data.whiteName = ''; }
+                data.blackUid = uid; data.blackVaultCode = vault; data.blackName = name;
+              } else if (color === 'W') {
+                if (data.whiteUid && !isMyWhite) throw new Error('TAKEN');
+                if (isMyBlack) { data.blackUid = null; data.blackVaultCode = null; data.blackName = ''; }
+                data.whiteUid = uid; data.whiteVaultCode = vault; data.whiteName = name;
+              }
+              const now = Date.now();
+              if (data.blackUid && data.whiteUid && data.status === 'waiting') {
+                data.status = 'playing';
+                data.lastTickAt = now;
+              }
+              data.updatedAt = now;
+              data.lastActivityAt = now;
+              tx.set(docRef, data);
+              return data;
+            });
+          } else {
+            const data = await cloudGetDoc('rooms', state.id);
+            if (!data) throw new Error('ROOM_MISSING');
             if (data.status === 'finished') throw new Error('FINISHED');
             const isMyBlack = data.blackUid === uid || (data.blackVaultCode && vault && data.blackVaultCode === vault);
             const isMyWhite = data.whiteUid === uid || (data.whiteVaultCode && vault && data.whiteVaultCode === vault);
             if (color === 'B') {
               if (data.blackUid && !isMyBlack) throw new Error('TAKEN');
-              if (isMyWhite) {
-                data.whiteUid = null;
-                data.whiteVaultCode = null;
-                data.whiteName = '';
-              }
-              data.blackUid = uid;
-              data.blackVaultCode = vault;
-              data.blackName = name;
+              if (isMyWhite) { data.whiteUid = null; data.whiteVaultCode = null; data.whiteName = ''; }
+              data.blackUid = uid; data.blackVaultCode = vault; data.blackName = name;
             } else if (color === 'W') {
               if (data.whiteUid && !isMyWhite) throw new Error('TAKEN');
-              if (isMyBlack) {
-                data.blackUid = null;
-                data.blackVaultCode = null;
-                data.blackName = '';
-              }
-              data.whiteUid = uid;
-              data.whiteVaultCode = vault;
-              data.whiteName = name;
+              if (isMyBlack) { data.blackUid = null; data.blackVaultCode = null; data.blackName = ''; }
+              data.whiteUid = uid; data.whiteVaultCode = vault; data.whiteName = name;
             }
             const now = Date.now();
             if (data.blackUid && data.whiteUid && data.status === 'waiting') {
@@ -4895,69 +4975,29 @@
             }
             data.updatedAt = now;
             data.lastActivityAt = now;
-            tx.set(docRef, data);
+            await cloudSetDoc('rooms', state.id, data);
             return data;
+          }
+        };
+
+        executeSeatClaim()
+          .then((updated) => {
+            syncVaultProfileToCloud(vault, uid, name);
+            applyIncomingRoomSnapshot(updated);
+            postSystemRoomNotice(`${name} 搶先入座${color === 'B' ? '執黑' : '執白'}！`);
+            if (updated.status === 'playing') {
+              postSystemRoomNotice('黑白雙方皆已就座，對局正式開始！');
+            }
           })
-            .then((updated) => {
-              syncVaultProfileToCloud(vault, uid, name);
-              applyIncomingRoomSnapshot(updated);
-              postSystemRoomNotice(`${name} 搶先入座${color === 'B' ? '執黑' : '執白'}！`);
-              if (updated.status === 'playing') {
-                postSystemRoomNotice('黑白雙方皆已就座，對局正式開始！');
-              }
-            })
-            .catch((err) => {
-              if (err && err.message === 'TAKEN') {
-                showToast('手慢一步！該席位已被其他棋友搶先入座');
-              } else if (err && err.message === 'FINISHED') {
-                showToast('本局已結束，請先開啟新棋局');
-              } else {
-                showToast('入座失敗，請重試');
-              }
-            });
-          return;
-        }
-
-        const curRole = getMyRole();
-        if (color === 'B') {
-          if (state.blackUid && curRole !== 'B') {
-            showToast('黑方席位已被其他棋友搶先入座！');
-            return;
-          }
-          if (curRole === 'W') {
-            state.whiteUid = null;
-            state.whiteVaultCode = null;
-            state.whiteName = '';
-          }
-          state.blackUid = uid;
-          state.blackVaultCode = vault;
-          state.blackName = name;
-          postSystemRoomNotice(`${name} 入座執黑`);
-        } else if (color === 'W') {
-          if (state.whiteUid && curRole !== 'W') {
-            showToast('白方席位已被其他棋友搶先入座！');
-            return;
-          }
-          if (curRole === 'B') {
-            state.blackUid = null;
-            state.blackVaultCode = null;
-            state.blackName = '';
-          }
-          state.whiteUid = uid;
-          state.whiteVaultCode = vault;
-          state.whiteName = name;
-          postSystemRoomNotice(`${name} 入座執白`);
-        }
-
-        if (state.blackUid && state.whiteUid && state.status === 'waiting') {
-          state.status = 'playing';
-          state.lastTickAt = Date.now();
-          postSystemRoomNotice('黑白雙方皆已就座，對局正式開始！');
-        }
-
-        syncVaultProfileToCloud(vault, uid, name);
-        persistCurrentRoomAndSync(true);
-        updateAllRoomUI();
+          .catch((err) => {
+            if (err && err.message === 'TAKEN') {
+              showToast('手慢一步！該席位已被其他棋友搶先入座');
+            } else if (err && err.message === 'FINISHED') {
+              showToast('本局已結束，請先開啟新棋局');
+            } else {
+              showToast(`入座失敗：${formatFirebaseError(err)}`);
+            }
+          });
       }
 
       function leaveSeat(color) {
@@ -6475,7 +6515,10 @@
           createdAt: Date.now()
         };
 
-        appState.records.unshift(rec);
+        const currentList = loadLocalVaultRecordsForCode(vaultCode);
+        currentList.unshift(rec);
+        saveLocalVaultRecordsForCode(vaultCode, currentList);
+        appState.records = currentList;
         renderLobbyRecords();
 
         if (useFirebase) {
@@ -6485,17 +6528,20 @@
               showToast(`☁️ 已存入雲端識別碼「${vaultCode}」！`);
             })
             .catch(() => {
-              showToast('⚠️ 雲端儲存失敗，請稍後重試');
+              showToast('已暫存於本機（雲端同步稍後重試）');
             });
         } else {
-          showToast('⚠️ Firebase 尚未連線，無法存入雲端棋譜庫');
+          showToast(`已存入棋譜庫（識別碼：${vaultCode}）`);
         }
         return true;
       }
 
       function deleteCloudRecord(recId) {
         if (!recId) return;
-        appState.records = appState.records.filter((r) => r.id !== recId);
+        const vaultCode = getMyVaultCode();
+        const filtered = loadLocalVaultRecordsForCode(vaultCode).filter((r) => r.id !== recId);
+        saveLocalVaultRecordsForCode(vaultCode, filtered);
+        appState.records = filtered;
         renderLobbyRecords();
 
         if (useFirebase) {
@@ -6506,6 +6552,8 @@
             .catch(() => {
               showToast('雲端刪除失敗，請稍後重試');
             });
+        } else {
+          showToast('已刪除棋譜');
         }
       }
 
@@ -6537,7 +6585,7 @@
             return;
           }
           const vaultCode = getMyVaultCode();
-          const existing = appState.records.slice();
+          const existing = loadLocalVaultRecordsForCode(vaultCode);
           const existingIds = new Set(existing.map((r) => r.id));
           let addedCount = 0;
 
@@ -6561,6 +6609,7 @@
             }
           });
 
+          saveLocalVaultRecordsForCode(vaultCode, existing);
           appState.records = existing;
           renderLobbyRecords();
           showToast(`📥 已成功還原 ${addedCount} 份棋譜至識別碼「${vaultCode}」！`);
@@ -6604,7 +6653,7 @@
       async function openStudyRoomWithRecord(record) {
         if (!record) return;
         if (!useFirebase) {
-          showToast('⚠️ Firebase 尚未連線，無法建立覆盤房間');
+          showToast('❌ Firebase 尚未連線，無法建立覆盤研究室');
           return;
         }
         const parsed = parseSgfData(record.sgf);
@@ -6613,7 +6662,7 @@
         const code = String(Math.floor(100000 + Math.random() * 900000));
         const firstBranchId = Object.keys(parsed.branches)[0] || 'branch_main';
 
-        state = {
+        const studyRoom = {
           id: roomId,
           code,
           title: `覆盤：${record.title}`,
@@ -6625,6 +6674,7 @@
           createdAt: now,
           updatedAt: now,
           lastActivityAt: now,
+          activeMembers: { [getMyUid()]: now },
           status: 'playing',
           board: createEmptyBoard(parsed.boardSize),
           moves: [],
@@ -6636,13 +6686,19 @@
           activeBranchId: firstBranchId,
           studyBranches: parsed.branches
         };
-        rebuildStudyBoardAtCursor(state.studyBranches[firstBranchId]);
+
+        const snap = computeStudyBoardSnapshot(studyRoom.studyBranches[firstBranchId]);
+        studyRoom.board = snap.board;
+        studyRoom.previousBoardHash = snap.previousBoardHash;
+        studyRoom.moves = snap.moves;
+        studyRoom.turn = snap.turn;
+
         try {
-          await cloudSetDoc('rooms', roomId, serializeRoomForFirestore(state));
-          appState.rooms[roomId] = serializeRoomForStorage(state);
+          await cloudSetDoc('rooms', roomId, serializeRoomForFirestore(studyRoom));
+          appState.rooms[roomId] = serializeRoomForStorage(studyRoom);
           enterRoom(roomId);
         } catch (err) {
-          showToast(`❌ 建立覆盤房間失敗：${formatFirebaseError(err)}`);
+          showToast(`❌ 建立覆盤房間失敗：${formatFirebaseError(err)}`, 4000);
         }
       }
 
@@ -6672,7 +6728,6 @@
           return;
         }
         renderLoadModalRecordsList();
-        fetchVaultRecordsOnce(getMyVaultCode());
         document.getElementById('load-sgf-modal')?.classList.remove('hidden');
       }
 
@@ -7159,6 +7214,7 @@
 
         renderRoomMembersList();
         resizeAndDrawBoard();
+        updateMyMatchesBadgeAndModal();
       }
 
       function updateMatchHudCenterInfo() {
@@ -7337,9 +7393,13 @@
             const bStats = getVaultStats(bCode);
             bRecEl.textContent = `${bStats.wins}勝 ${bStats.losses}敗`;
             bRecEl.classList.remove('hidden');
-            if (!appState.vaultProfiles[bCode] && !appState.fetchedVaultStatsCodes.has(bCode) && useFirebase) {
-              appState.fetchedVaultStatsCodes.add(bCode);
-              fetchVaultProfileOnce(bCode);
+            if (!appState.vaultProfiles[bCode] && useFirebase) {
+              cloudGetDoc('vault_profiles', bCode).then((d) => {
+                if (d) {
+                  appState.vaultProfiles[bCode] = d;
+                  updateMatchPanelUI();
+                }
+              }).catch(() => {});
             }
           } else {
             bRecEl.classList.add('hidden');
@@ -7351,9 +7411,13 @@
             const wStats = getVaultStats(wCode);
             wRecEl.textContent = `${wStats.wins}勝 ${wStats.losses}敗`;
             wRecEl.classList.remove('hidden');
-            if (!appState.vaultProfiles[wCode] && !appState.fetchedVaultStatsCodes.has(wCode) && useFirebase) {
-              appState.fetchedVaultStatsCodes.add(wCode);
-              fetchVaultProfileOnce(wCode);
+            if (!appState.vaultProfiles[wCode] && useFirebase) {
+              cloudGetDoc('vault_profiles', wCode).then((d) => {
+                if (d) {
+                  appState.vaultProfiles[wCode] = d;
+                  updateMatchPanelUI();
+                }
+              }).catch(() => {});
             }
           } else {
             wRecEl.classList.add('hidden');
@@ -7609,15 +7673,10 @@
         setMyNickname(getMyNickname(), hasExplicitPersistedNickname);
         updateVaultAndCloudStatusUI();
 
-        document.getElementById('firebase-status-pill')?.addEventListener('click', () => {
-          showToast('🔄 正在重新連線 Firebase...');
-          initSyncBackend();
-        });
         document.getElementById('retry-firebase-btn')?.addEventListener('click', () => {
-          showToast('🔄 正在重新連線 Firebase...');
           initSyncBackend();
         });
-        document.getElementById('refresh-cloud-rooms-btn')?.addEventListener('click', () => {
+        document.getElementById('refresh-rooms-btn')?.addEventListener('click', () => {
           fetchRoomsFromCloudOnce(true);
         });
 
@@ -7649,52 +7708,49 @@
 
         document.getElementById('edit-nickname-btn-lobby')?.addEventListener('click', openNicknameSettingsModal);
         document.getElementById('edit-nickname-btn-room')?.addEventListener('click', openNicknameSettingsModal);
-        document.getElementById('my-matches-btn-lobby')?.addEventListener('click', () => {
-          openMyMatchesModal();
-          if (useFirebase && !state) fetchRoomsFromCloudOnce(false);
-        });
-        document.getElementById('my-matches-btn-room')?.addEventListener('click', () => {
-          openMyMatchesModal();
-          if (useFirebase) fetchRoomsFromCloudOnce(false);
-        });
-        document.getElementById('sync-room-history-btn')?.addEventListener('click', () => {
-          if (state) fetchRoomMessagesOnce(state.id, true);
-        });
+        document.getElementById('my-matches-btn-lobby')?.addEventListener('click', openMyMatchesModal);
+        document.getElementById('my-matches-btn-room')?.addEventListener('click', openMyMatchesModal);
         document.getElementById('my-matches-list')?.addEventListener('click', (e) => {
           const card = e.target.closest('[data-jump-match-room]');
           if (!card) return;
-          const targetId = card.dataset.jumpMatchRoom;
+          const targetRoomId = card.dataset.jumpMatchRoom;
           closeAllModals();
-          if (state && state.id === targetId) return;
-          if (state) {
-            AppDirectBus.leave();
-            if (roomUnsubscribe) {
-              roomUnsubscribe();
-              roomUnsubscribe = null;
-            }
+          if (state && state.id === targetRoomId) {
+            showToast('目前已在此對局房間中');
+            return;
           }
-          enterRoom(targetId);
+          if (state) {
+            leaveRoom();
+          }
+          enterRoom(targetRoomId);
         });
         document.getElementById('modal-copy-vault-btn')?.addEventListener('click', () => {
           const code = getMyVaultCode();
           copyTextToClipboard(code, `已複製個人雲端識別碼：${code}`);
         });
         document.getElementById('modal-apply-vault-btn')?.addEventListener('click', async () => {
+          const btn = document.getElementById('modal-apply-vault-btn');
           const vInp = document.getElementById('modal-vault-code-input');
           const pInp = document.getElementById('modal-vault-pin-input');
           const nickInp = document.getElementById('nickname-input');
           const raw = vInp?.value || '';
           const pin = pInp?.value || '';
-          const typedNick = String(nickInp?.value || '').trim().slice(0, 16);
-          if (typedNick && !isDefaultGuestNickname(typedNick)) {
-            setMyNickname(typedNick, true);
+          if (btn) {
+            btn.disabled = true;
+            btn.textContent = '查詢角色中...';
           }
-          const ok = await setMyVaultCode(raw, true, true, pin);
-          if (ok) {
-            if (nickInp) nickInp.value = getMyNickname();
-            renderLobbyRooms();
-            if (state) updateAllRoomUI();
-            showToast(`🔐 已成功綁定帳號「${getMyVaultCode()}」與角色（${getMyNickname()}）！`);
+          try {
+            const ok = await switchCharacterByVaultCode(raw, pin);
+            if (ok) {
+              if (vInp) vInp.value = getMyVaultCode();
+              if (nickInp) nickInp.value = getMyNickname();
+              if (pInp) pInp.value = '';
+            }
+          } finally {
+            if (btn) {
+              btn.disabled = false;
+              btn.textContent = '切換角色';
+            }
           }
         });
         document.getElementById('copy-vault-code-btn')?.addEventListener('click', () => {
@@ -7730,7 +7786,7 @@
             if (role === 'B') { state.blackUid = uid; state.blackVaultCode = vault; state.blackName = updated; }
             if (role === 'W') { state.whiteUid = uid; state.whiteVaultCode = vault; state.whiteName = updated; }
             if (isStudyPresenter()) { state.studyControllerUid = uid; state.studyControllerVaultCode = vault; state.studyControllerName = updated; }
-            updateMyRoomPresence(state.id);
+            updateMyRoomPresence(state.id, true);
             persistCurrentRoomAndSync(false);
             updateAllRoomUI();
           }
@@ -7759,12 +7815,8 @@
             const isRecords = appState.lobbyTab === 'records';
             document.getElementById('lobby-rooms-container')?.classList.toggle('hidden', isRecords);
             document.getElementById('lobby-records-container')?.classList.toggle('hidden', !isRecords);
-            if (isRecords) {
-              renderLobbyRecords();
-              fetchVaultRecordsOnce(getMyVaultCode());
-            } else {
-              renderLobbyRooms();
-            }
+            if (isRecords) renderLobbyRecords();
+            else renderLobbyRooms();
           });
         });
 
@@ -7811,7 +7863,7 @@
           if (delBtn) {
             e.stopPropagation();
             const rid = delBtn.dataset.deleteRoomLobby;
-            openCustomConfirm('確定要從 Firebase 刪除此房間嗎？', () => deleteRoomById(rid), '刪除房間');
+            openCustomConfirm('確定要從 Firebase 雲端永久刪除此房間嗎？', () => deleteRoomById(rid), '刪除雲端房間');
             return;
           }
           const card = e.target.closest('[data-enter-room]');
@@ -7908,6 +7960,11 @@
             });
           });
         });
+
+        const confirmCreateBtn = document.getElementById('confirm-create-room-btn');
+        if (confirmCreateBtn) {
+          confirmCreateBtn.addEventListener('click', confirmCreateRoom);
+        }
 
         // 對弈室快捷操作列、觀眾導覽列與選手卡事件
         document.getElementById('board-pass-btn')?.addEventListener('click', handleMatchPass);
@@ -8150,7 +8207,7 @@
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
 
-      // 啟動應用程式（清除舊版永久本地快取，僅保留個人設定並連接 Firebase 與 App 直傳引擎）
+      // 啟動應用程式（清除舊版房間本地快取，純透過 Firebase 雲端即時同步）
       (async () => {
         await hydrateStorageBeforeBoot();
 
