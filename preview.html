@@ -1461,13 +1461,11 @@
         }
 
         if (useFirebase) {
-          try {
-            const prof = await cloudGetDoc('vault_profiles', normCode);
-            if (prof) {
-              appState.vaultProfiles[normCode] = prof;
-              return { exists: true, profile: prof };
-            }
-          } catch (e) {}
+          const prof = await cloudGetDoc('vault_profiles', normCode);
+          if (prof) {
+            appState.vaultProfiles[normCode] = prof;
+            return { exists: true, profile: prof };
+          }
 
           try {
             const recs = await cloudListDocs('vault_records', 200);
@@ -1531,7 +1529,26 @@
 
         const pin = String(rawPin || '').trim();
         const enteredPinHash = pin ? simpleStableHash(`${norm}#${pin}`) : '';
-        const { exists, profile: cloudProf } = await checkVaultCodeExistsInCloud(norm);
+        let exists = false;
+        let cloudProf = null;
+
+        if (norm === getMyVaultCode()) {
+          exists = true;
+          cloudProf = (appState.vaultProfiles && appState.vaultProfiles[norm]) || {
+            vaultCode: norm,
+            uid: getMyUid(),
+            nickname: getMyNickname()
+          };
+        } else {
+          try {
+            const checkRes = await checkVaultCodeExistsInCloud(norm);
+            exists = checkRes.exists;
+            cloudProf = checkRes.profile;
+          } catch (err) {
+            showToast(`⚠️ 查詢雲端識別碼失敗：${formatFirebaseError(err)}`);
+            return false;
+          }
+        }
 
         if (exists) {
           // 識別碼存在：切換為該角色
@@ -1543,7 +1560,7 @@
           }
 
           const targetUid = (cloudProf && cloudProf.uid) || deriveDeterministicAccountUid(norm, pin);
-          const targetNick = (cloudProf && cloudProf.nickname) || getMyNickname();
+          const targetNick = (cloudProf && cloudProf.nickname) || generateNewGuestNickname(getMyNickname());
 
           isFreshlyGeneratedVaultCode = false;
           hasExplicitPersistedUid = true;
