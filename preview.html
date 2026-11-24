@@ -1584,31 +1584,30 @@
           showToast(`✅ 已切換為角色「${targetNick}」（識別碼：${norm}）`);
           return true;
         } else {
-          // 識別碼不存在：由系統指定一個新的角色與新的暱稱
+          // 識別碼不存在：使用此識別碼建立一個新的角色與新的暱稱
           const prevNick = getMyNickname();
-          const freshUid = generateId('u');
-          const freshVault = generateVaultCode();
+          const newUid = deriveDeterministicAccountUid(norm, pin);
           const freshNick = generateNewGuestNickname(prevNick);
 
           isFreshlyGeneratedVaultCode = false;
           hasExplicitPersistedUid = true;
           hasExplicitPersistedNickname = true;
-          safeSetStorage(STORAGE_KEYS.VAULT_CODE, freshVault, true);
-          safeSetStorage(STORAGE_KEYS.UID, freshUid, true);
+          safeSetStorage(STORAGE_KEYS.VAULT_CODE, norm, true);
+          safeSetStorage(STORAGE_KEYS.UID, newUid, true);
           safeSetStorage(STORAGE_KEYS.NICKNAME, freshNick, true);
-          persistIdentityBundle(freshUid, freshNick, true);
+          persistIdentityBundle(newUid, freshNick, true);
           setMyNickname(freshNick, true);
           updateVaultAndCloudStatusUI();
 
-          syncVaultProfileToCloud(freshVault, freshUid, freshNick);
-          subscribeVaultRecords(freshVault);
-          subscribeVaultProfileStats(freshVault);
+          syncVaultProfileToCloud(norm, newUid, freshNick, enteredPinHash);
+          subscribeVaultRecords(norm);
+          subscribeVaultProfileStats(norm);
           renderLobbyRooms();
           if (state) {
             updateMyRoomPresence(state.id, true);
             updateAllRoomUI();
           }
-          showToast(`🆕 識別碼「${norm}」不存在，已為您指定新角色「${freshNick}」（${freshVault}）！`, 3600);
+          showToast(`🆕 識別碼「${norm}」不存在，已用此識別碼建立新角色「${freshNick}」！`, 3600);
           return true;
         }
       }
