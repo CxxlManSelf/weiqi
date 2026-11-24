@@ -1824,6 +1824,12 @@
       function formatFirebaseError(err) {
         if (!err) return '未知雲端錯誤';
         const code = err.code || err.message || '';
+        if (code === 'auth/admin-restricted-operation') {
+          return 'Firebase 專案尚未開啟「匿名登入 (Anonymous)」，請至 Firebase Console → Authentication → Sign-in method 啟用匿名登入';
+        }
+        if (code === 'AUTH_REQUIRED_AND_DISABLED') {
+          return 'Firebase 匿名登入未啟用 (auth/admin-restricted-operation)，且 Firestore 規則拒絕未登入讀寫。請在 Firebase Console 開啟「匿名登入」，或將 Firestore 規則設為允許讀寫。';
+        }
         if (code === 'CONNECTION_TIMEOUT' || code === 'WRITE_TIMEOUT' || code === 'DELETE_TIMEOUT') {
           return '連線 Firebase 逾時，請確認網路連線正常、非受限預覽視窗，且 Firebase Console 已建立 Firestore 資料庫';
         }
@@ -2260,6 +2266,7 @@
       let auth = null;
       let currentUser = null;
       let useFirebase = false;
+      let firebaseTransport = 'none'; // 'sdk' | 'rest' | 'none'
       let isExternalFirebase = false;
       let firestoreSettingsApplied = false;
       let networkListenersBound = false;
@@ -2275,12 +2282,261 @@
       let myRoomJoinedAt = 0;
       const renderedRoomChatIds = new Set();
 
-      function getCloudCollection(shortName) {
+      function getActiveFirebaseConfig() {
+        if (DEFAULT_EXTERNAL_FIREBASE_CONFIG && DEFAULT_EXTERNAL_FIREBASE_CONFIG.apiKey) {
+          return { cfg: DEFAULT_EXTERNAL_FIREBASE_CONFIG, external: true };
+        }
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+          const parsed = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
+          return { cfg: parsed, external: false };
+        }
+        return { cfg: null, external: false };
+      }
+
+      function getCloudCollectionName(shortName) {
         if (isExternalFirebase) {
-          return db.collection(`weiqi_${shortName}`);
+          return `weiqi_${shortName}`;
         }
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'weiqi-default';
-        return db.collection(`artifacts/${appId}/public/data/${shortName}`);
+        return `artifacts/${appId}/public/data/${shortName}`;
+      }
+
+      function getCloudCollection(shortName) {
+        return db.collection(getCloudCollectionName(shortName));
+      }
+
+      // ==================== Firestore REST API 備援引擎（解決長連線串流被阻斷導致的 maximum backoff 錯誤） ====================
+      function toFirestoreRestValue(val) {
+        if (val === null || val === undefined) return { nullValue: null };
+        if (typeof val === 'boolean') return { booleanValue: val };
+        if (typeof val === 'number') {
+          if (!Number.isFinite(val)) return { nullValue: null };
+          return Number.isInteger(val) ? { integerValue: String(val) } : { doubleValue: val };
+        }
+        if (typeof val === 'string') return { stringValue: val };
+        if (Array.isArray(val)) {
+          return { arrayValue: { values: val.map((item) => toFirestoreRestValue(item)) } };
+        }
+        if (typeof val === 'object') {
+          return { mapValue: { fields: toFirestoreRestFields(val) } };
+        }
+        return { stringValue: String(val) };
+      }
+
+      function toFirestoreRestFields(obj) {
+        const fields = {};
+        if (!obj || typeof obj !== 'object') return fields;
+        Object.entries(obj).forEach(([k, v]) => {
+          if (v !== undefined) {
+            fields[k] = toFirestoreRestValue(v);
+          }
+        });
+        return fields;
+      }
+
+      function fromFirestoreRestValue(v) {
+        if (!v || typeof v !== 'object') return null;
+        if ('nullValue' in v) return null;
+        if ('booleanValue' in v) return Boolean(v.booleanValue);
+        if ('integerValue' in v) return Number(v.integerValue);
+        if ('doubleValue' in v) return Number(v.doubleValue);
+        if ('stringValue' in v) return String(v.stringValue);
+        if ('timestampValue' in v) return Date.parse(v.timestampValue) || 0;
+        if ('arrayValue' in v) {
+          const vals = (v.arrayValue && v.arrayValue.values) || [];
+          return vals.map((item) => fromFirestoreRestValue(item));
+        }
+        if ('mapValue' in v) {
+          return fromFirestoreRestFields((v.mapValue && v.mapValue.fields) || {});
+        }
+        return null;
+      }
+
+      function fromFirestoreRestFields(fields) {
+        const out = {};
+        if (!fields || typeof fields !== 'object') return out;
+        Object.entries(fields).forEach(([k, v]) => {
+          out[k] = fromFirestoreRestValue(v);
+        });
+        return out;
+      }
+
+      function parseFirestoreRestDoc(docJson) {
+        if (!docJson || !docJson.fields) return null;
+        const data = fromFirestoreRestFields(docJson.fields);
+        if (!data.id && docJson.name) {
+          const parts = String(docJson.name).split('/');
+          data.id = parts[parts.length - 1];
+        }
+        return data;
+      }
+
+      async function firestoreRestFetch(path, options = {}) {
+        const { cfg } = getActiveFirebaseConfig();
+        if (!cfg || !cfg.projectId || !cfg.apiKey) {
+          throw new Error('缺少 Firebase 專案設定');
+        }
+        const sep = path.includes('?') ? '&' : '?';
+        const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(cfg.projectId)}/databases/(default)/documents/${path}${sep}key=${encodeURIComponent(cfg.apiKey)}`;
+        const headers = { 'Content-Type': 'application/json' };
+        if (currentUser && typeof currentUser.getIdToken === 'function') {
+          try {
+            const token = await currentUser.getIdToken();
+            if (token) headers.Authorization = `Bearer ${token}`;
+          } catch (e) {}
+        }
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), options.timeoutMs || 8000);
+        try {
+          const resp = await fetch(url, {
+            method: options.method || 'GET',
+            headers,
+            body: options.body ? JSON.stringify(options.body) : undefined,
+            signal: controller.signal
+          });
+          if (!resp.ok) {
+            let errJson = null;
+            try { errJson = await resp.json(); } catch (e) {}
+            const statusStr = errJson?.error?.status || '';
+            const msgStr = errJson?.error?.message || `HTTP ${resp.status}`;
+            const err = new Error(msgStr);
+            if (resp.status === 403 || statusStr === 'PERMISSION_DENIED') err.code = 'permission-denied';
+            else if (resp.status === 404 || statusStr === 'NOT_FOUND') err.code = 'not-found';
+            else if (resp.status === 401 || statusStr === 'UNAUTHENTICATED') err.code = 'unauthenticated';
+            else err.code = statusStr || `http-${resp.status}`;
+            throw err;
+          }
+          if (resp.status === 204) return null;
+          return await resp.json();
+        } catch (err) {
+          if (err && err.name === 'AbortError') {
+            const tErr = new Error('CONNECTION_TIMEOUT');
+            tErr.code = 'CONNECTION_TIMEOUT';
+            throw tErr;
+          }
+          throw err;
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+
+      async function cloudGetDoc(shortName, docId) {
+        const colPath = getCloudCollectionName(shortName);
+        if (firebaseTransport === 'sdk' && db) {
+          const snap = await withTimeout(db.collection(colPath).doc(docId).get(), 7000, 'CONNECTION_TIMEOUT');
+          return snap.exists ? snap.data() : null;
+        }
+        try {
+          const raw = await firestoreRestFetch(`${colPath}/${encodeURIComponent(docId)}`);
+          return parseFirestoreRestDoc(raw);
+        } catch (err) {
+          if (err && err.code === 'not-found') return null;
+          throw err;
+        }
+      }
+
+      async function cloudListDocs(shortName, pageSize = 200) {
+        const colPath = getCloudCollectionName(shortName);
+        if (firebaseTransport === 'sdk' && db) {
+          const snap = await withTimeout(db.collection(colPath).limit(pageSize).get(), 7000, 'CONNECTION_TIMEOUT');
+          const list = [];
+          snap.forEach((d) => list.push(d.data()));
+          return list;
+        }
+        const raw = await firestoreRestFetch(`${colPath}?pageSize=${pageSize}`);
+        const docs = (raw && raw.documents) || [];
+        return docs.map(parseFirestoreRestDoc).filter(Boolean);
+      }
+
+      async function cloudSetDoc(shortName, docId, data, options = {}) {
+        const colPath = getCloudCollectionName(shortName);
+        if (firebaseTransport === 'sdk' && db) {
+          const ref = db.collection(colPath).doc(docId);
+          await withTimeout(options.merge ? ref.set(data, { merge: true }) : ref.set(data), 8000, 'WRITE_TIMEOUT');
+          return;
+        }
+        let query = '';
+        if (options.fieldPaths && Array.isArray(options.fieldPaths) && options.fieldPaths.length) {
+          query = '?' + options.fieldPaths.map((p) => `updateMask.fieldPaths=${encodeURIComponent(p)}`).join('&');
+        } else if (options.merge) {
+          const keys = Object.keys(data || {});
+          if (keys.length) {
+            query = '?' + keys.map((k) => `updateMask.fieldPaths=${encodeURIComponent(k)}`).join('&');
+          }
+        }
+        await firestoreRestFetch(`${colPath}/${encodeURIComponent(docId)}${query}`, {
+          method: 'PATCH',
+          body: { fields: toFirestoreRestFields(data) },
+          timeoutMs: 8000
+        });
+      }
+
+      async function cloudDeleteDoc(shortName, docId) {
+        const colPath = getCloudCollectionName(shortName);
+        if (firebaseTransport === 'sdk' && db) {
+          await withTimeout(db.collection(colPath).doc(docId).delete(), 8000, 'DELETE_TIMEOUT');
+          return;
+        }
+        await firestoreRestFetch(`${colPath}/${encodeURIComponent(docId)}`, {
+          method: 'DELETE',
+          timeoutMs: 8000
+        });
+      }
+
+      function cloudSubscribeDoc(shortName, docId, onData, onError, pollMs = 1500) {
+        const colPath = getCloudCollectionName(shortName);
+        if (firebaseTransport === 'sdk' && db) {
+          return db.collection(colPath).doc(docId).onSnapshot(
+            (doc) => onData(doc.exists ? doc.data() : null),
+            (err) => { if (onError) onError(err); }
+          );
+        }
+        let stopped = false;
+        const tick = async () => {
+          if (stopped) return;
+          try {
+            const data = await cloudGetDoc(shortName, docId);
+            if (!stopped) onData(data);
+          } catch (err) {
+            if (!stopped && onError) onError(err);
+          }
+        };
+        tick();
+        const timer = setInterval(tick, pollMs);
+        return () => {
+          stopped = true;
+          clearInterval(timer);
+        };
+      }
+
+      function cloudSubscribeCollection(shortName, onDocs, onError, pollMs = 2500, pageSize = 200) {
+        const colPath = getCloudCollectionName(shortName);
+        if (firebaseTransport === 'sdk' && db) {
+          return db.collection(colPath).onSnapshot(
+            (snap) => {
+              const list = [];
+              snap.forEach((doc) => list.push(doc.data()));
+              onDocs(list);
+            },
+            (err) => { if (onError) onError(err); }
+          );
+        }
+        let stopped = false;
+        const tick = async () => {
+          if (stopped) return;
+          try {
+            const list = await cloudListDocs(shortName, pageSize);
+            if (!stopped) onDocs(list);
+          } catch (err) {
+            if (!stopped && onError) onError(err);
+          }
+        };
+        tick();
+        const timer = setInterval(tick, pollMs);
+        return () => {
+          stopped = true;
+          clearInterval(timer);
+        };
       }
 
       function updateFirebaseStatusUI(status, detailMsg = '') {
@@ -2290,8 +2546,9 @@
 
         if (badge) {
           if (status === 'connected') {
+            const modeLabel = firebaseTransport === 'rest' ? 'Firebase 已連線 (REST)' : 'Firebase 已連線';
             badge.className = 'hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-700 text-[11px] font-semibold text-emerald-300 shrink-0';
-            badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span><span>Firebase 已連線</span>';
+            badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span><span>${modeLabel}</span>`;
           } else if (status === 'error') {
             badge.className = 'hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-950/90 border border-rose-700 text-[11px] font-semibold text-rose-300 shrink-0';
             badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span><span>Firebase 異常</span>';
@@ -2346,35 +2603,34 @@
         appState.records = localCached;
         renderLobbyRecords();
 
-        if (!useFirebase || !db || !code) {
+        if (!useFirebase || !code) {
           return;
         }
 
-        recordsUnsubscribe = getCloudCollection('vault_records')
-          .where('vaultCode', '==', code)
-          .onSnapshot(
-            (snap) => {
-              const cloudMap = {};
-              snap.forEach((doc) => {
-                const d = doc.data();
-                if (d && d.id) cloudMap[d.id] = d;
-              });
-              const merged = Object.values(cloudMap);
-              merged.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-              appState.records = merged;
-              saveLocalVaultRecordsForCode(code, merged);
-              renderLobbyRecords();
-              const loadModal = document.getElementById('load-sgf-modal');
-              if (loadModal && !loadModal.classList.contains('hidden')) {
-                renderLoadModalRecordsList();
-              }
-            },
-            () => {}
-          );
+        recordsUnsubscribe = cloudSubscribeCollection(
+          'vault_records',
+          (docs) => {
+            const cloudMap = {};
+            docs.forEach((d) => {
+              if (d && d.id && d.vaultCode === code) cloudMap[d.id] = d;
+            });
+            const merged = Object.values(cloudMap);
+            merged.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            appState.records = merged;
+            saveLocalVaultRecordsForCode(code, merged);
+            renderLobbyRecords();
+            const loadModal = document.getElementById('load-sgf-modal');
+            if (loadModal && !loadModal.classList.contains('hidden')) {
+              renderLoadModalRecordsList();
+            }
+          },
+          () => {},
+          5000
+        );
       }
 
       async function handleAuthenticatedUserReady(user) {
-        if (!useFirebase || !db || !user) return;
+        if (!useFirebase || !user) return;
         currentUser = user;
         const authUid = user.uid;
         const prevUid = getMyUid();
@@ -2382,11 +2638,10 @@
         let cloudNick = null;
         let cloudVault = null;
         try {
-          const pubDoc = await getCloudCollection('user_profiles').doc(authUid).get();
-          if (pubDoc.exists) {
-            const pData = pubDoc.data();
-            if (pData?.nickname) cloudNick = pData.nickname;
-            if (pData?.vaultCode) cloudVault = normalizeVaultCode(pData.vaultCode);
+          const pData = await cloudGetDoc('user_profiles', authUid);
+          if (pData) {
+            if (pData.nickname) cloudNick = pData.nickname;
+            if (pData.vaultCode) cloudVault = normalizeVaultCode(pData.vaultCode);
           }
         } catch (e) {}
 
@@ -2481,6 +2736,7 @@
 
         if (typeof navigator !== 'undefined' && navigator.onLine === false) {
           useFirebase = false;
+          firebaseTransport = 'none';
           updateFirebaseStatusUI('error', '目前裝置處於離線狀態，請連線網路後點擊「重新連線」');
           appState.roomsLoadedFromCloud = true;
           renderLobbyRooms();
@@ -2488,56 +2744,36 @@
         }
 
         try {
-          let activeCfg = null;
-          let externalMode = false;
-          if (DEFAULT_EXTERNAL_FIREBASE_CONFIG && DEFAULT_EXTERNAL_FIREBASE_CONFIG.apiKey) {
-            activeCfg = DEFAULT_EXTERNAL_FIREBASE_CONFIG;
-            externalMode = true;
-          } else if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-            activeCfg = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
-            externalMode = false;
-          }
-
+          const { cfg: activeCfg, external: externalMode } = getActiveFirebaseConfig();
           if (!activeCfg || !activeCfg.apiKey) {
             throw new Error('找不到 Firebase 設定檔');
           }
+          isExternalFirebase = externalMode;
 
           if (!firebase.apps.length) {
             firebase.initializeApp(activeCfg);
           }
-          db = firebase.firestore();
-          if (!firestoreSettingsApplied) {
-            try {
-              // 強制使用 HTTP Long Polling，避免 WebChannel 在沙盒/代理環境卡死而觸發 maximum backoff delay
-              db.settings({
-                experimentalForceLongPolling: true,
-                ignoreUndefinedProperties: true
-              });
-              firestoreSettingsApplied = true;
-            } catch (settingsErr) {
-              firestoreSettingsApplied = true;
-            }
+          if (firebase.firestore && typeof firebase.firestore.setLogLevel === 'function') {
+            firebase.firestore.setLogLevel('error');
           }
-          isExternalFirebase = externalMode;
 
           if (!networkListenersBound) {
             networkListenersBound = true;
             window.addEventListener('online', () => {
-              if (!useFirebase) {
-                initSyncBackend();
-              } else if (db) {
-                db.enableNetwork().catch(() => {});
-              }
+              if (!useFirebase) initSyncBackend();
             });
             window.addEventListener('offline', () => {
               useFirebase = false;
-              if (db) db.disableNetwork().catch(() => {});
+              firebaseTransport = 'none';
+              if (db) {
+                db.terminate().catch(() => {});
+                db = null;
+              }
               updateFirebaseStatusUI('error', '網路已中斷，恢復連線後將自動重新連接 Firebase');
             });
           }
 
-          await db.enableNetwork().catch(() => {});
-
+          let authRestrictedByAdmin = false;
           if (firebase.auth) {
             auth = firebase.auth();
             const restoredUser = await new Promise((resolve) => {
@@ -2554,40 +2790,88 @@
                   try { unsub(); } catch (e) {}
                   resolve(auth.currentUser || null);
                 }
-              }, 2000);
+              }, 1500);
             });
 
             if (restoredUser) {
               currentUser = restoredUser;
-            } else if (externalMode) {
-              const cred = await withTimeout(auth.signInAnonymously(), 6000, 'AUTH_TIMEOUT');
-              currentUser = (cred && cred.user) || auth.currentUser || null;
             } else {
-              let cred = null;
-              if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                cred = await withTimeout(auth.signInWithCustomToken(__initial_auth_token), 6000, 'AUTH_TIMEOUT').catch(() => null);
+              try {
+                if (externalMode) {
+                  const cred = await withTimeout(auth.signInAnonymously(), 5000, 'AUTH_TIMEOUT');
+                  currentUser = (cred && cred.user) || auth.currentUser || null;
+                } else {
+                  let cred = null;
+                  if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    cred = await withTimeout(auth.signInWithCustomToken(__initial_auth_token), 5000, 'AUTH_TIMEOUT').catch(() => null);
+                  }
+                  if (!cred || !cred.user) {
+                    cred = await withTimeout(auth.signInAnonymously(), 5000, 'AUTH_TIMEOUT');
+                  }
+                  currentUser = (cred && cred.user) || auth.currentUser || null;
+                }
+              } catch (authErr) {
+                if (authErr && authErr.code === 'auth/admin-restricted-operation') {
+                  authRestrictedByAdmin = true;
+                  currentUser = null;
+                } else {
+                  throw authErr;
+                }
               }
-              if (!cred || !cred.user) {
-                cred = await withTimeout(auth.signInAnonymously(), 6000, 'AUTH_TIMEOUT');
-              }
-              currentUser = (cred && cred.user) || auth.currentUser || null;
             }
           }
 
-          // 先做一次伺服器端探測（8 秒逾時），確認網路與 Firestore 規則暢通，避免在無網路或封鎖環境進入最大退避延遲迴圈
-          await withTimeout(
-            getCloudCollection('rooms').limit(1).get({ source: 'server' }),
-            8000,
-            'CONNECTION_TIMEOUT'
-          );
+          // 第 1 步：先以無狀態 Firestore REST API 探測連線與規則權限（不會啟動背景 backoff 迴圈）
+          try {
+            await firestoreRestFetch(`${getCloudCollectionName('rooms')}?pageSize=1`, { timeoutMs: 6000 });
+          } catch (restProbeErr) {
+            if (authRestrictedByAdmin && restProbeErr && restProbeErr.code === 'permission-denied') {
+              const combinedErr = new Error('AUTH_REQUIRED_AND_DISABLED');
+              combinedErr.code = 'AUTH_REQUIRED_AND_DISABLED';
+              throw combinedErr;
+            }
+            throw restProbeErr;
+          }
+
+          // 第 2 步：嘗試啟用 Firestore SDK 即時長連線；若長連線串流被環境阻斷則立即 terminate 並切換為 REST 同步
+          let sdkReady = false;
+          try {
+            if (!db) {
+              db = firebase.firestore();
+              if (!firestoreSettingsApplied) {
+                db.settings({
+                  experimentalForceLongPolling: true,
+                  ignoreUndefinedProperties: true
+                });
+                firestoreSettingsApplied = true;
+              }
+            }
+            await withTimeout(
+              getCloudCollection('rooms').limit(1).get({ source: 'server' }),
+              3500,
+              'SDK_STREAM_TIMEOUT'
+            );
+            sdkReady = true;
+          } catch (sdkErr) {
+            sdkReady = false;
+            if (db) {
+              // 徹底終止 SDK 實例，杜絕 Using maximum backoff delay 錯誤刷屏
+              await db.terminate().catch(() => {});
+              db = null;
+              firestoreSettingsApplied = false;
+            }
+          }
 
           useFirebase = true;
+          firebaseTransport = sdkReady ? 'sdk' : 'rest';
           updateFirebaseStatusUI('connected');
         } catch (e) {
           useFirebase = false;
-          // 暫停背景無效連線重試，避免觸發 Firestore maximum backoff delay 警告
+          firebaseTransport = 'none';
           if (db) {
-            db.disableNetwork().catch(() => {});
+            await db.terminate().catch(() => {});
+            db = null;
+            firestoreSettingsApplied = false;
           }
           const detail = formatFirebaseError(e);
           updateFirebaseStatusUI('error', detail);
@@ -2596,7 +2880,7 @@
           return;
         }
 
-        if (useFirebase && db) {
+        if (useFirebase) {
           if (currentUser) {
             await handleAuthenticatedUserReady(currentUser);
           } else {
@@ -2604,26 +2888,25 @@
           }
           const authUid = currentUser ? currentUser.uid : null;
 
-          userProfilesUnsubscribe = getCloudCollection('user_profiles').onSnapshot(
-            (snap) => {
-              snap.forEach((doc) => {
-                const d = doc.data();
-                if (d && d.uid) {
-                  appState.cloudProfiles[d.uid] = d;
-                }
+          userProfilesUnsubscribe = cloudSubscribeCollection(
+            'user_profiles',
+            (docs) => {
+              docs.forEach((d) => {
+                if (d && d.uid) appState.cloudProfiles[d.uid] = d;
               });
               recoverNicknameFromKnownData(getMyUid());
               if (state) renderRoomMembersList();
             },
-            () => {}
+            () => {},
+            6000
           );
 
-          vaultProfilesAllUnsubscribe = getCloudCollection('vault_profiles').onSnapshot(
-            (snap) => {
+          vaultProfilesAllUnsubscribe = cloudSubscribeCollection(
+            'vault_profiles',
+            (docs) => {
               let updated = false;
-              snap.forEach((doc) => {
-                const d = doc.data();
-                const code = normalizeVaultCode(d?.vaultCode || doc.id);
+              docs.forEach((d) => {
+                const code = normalizeVaultCode(d?.vaultCode);
                 if (code && d) {
                   appState.vaultProfiles[code] = {
                     ...(appState.vaultProfiles[code] || {}),
@@ -2642,18 +2925,20 @@
                 }
               }
             },
-            () => {}
+            () => {},
+            6000
           );
 
-          roomsCollectionUnsubscribe = getCloudCollection('rooms').onSnapshot(
-            (snap) => {
+          roomsCollectionUnsubscribe = cloudSubscribeCollection(
+            'rooms',
+            (docs) => {
               appState.roomsLoadedFromCloud = true;
               updateFirebaseStatusUI('connected');
               let needsOwnershipHeal = false;
               const seenIds = new Set();
 
-              snap.forEach((doc) => {
-                const data = normalizeRoomFromRemote(doc.data());
+              docs.forEach((rawDoc) => {
+                const data = normalizeRoomFromRemote(rawDoc);
                 if (!data || !data.id) return;
                 if (data.deleted || appState.deletedRoomIds.has(data.id)) {
                   delete appState.rooms[data.id];
@@ -2677,7 +2962,6 @@
                 }
               });
 
-              // 移除雲端已不存在的房間（完全不保留本地殘留）
               Object.keys(appState.rooms).forEach((existingId) => {
                 if (!seenIds.has(existingId)) {
                   delete appState.rooms[existingId];
@@ -2698,26 +2982,26 @@
               tryAutoJoinPendingRoom();
             },
             (err) => {
-              useFirebase = false;
-              if (db) db.disableNetwork().catch(() => {});
               updateFirebaseStatusUI('error', `讀取房間列表失敗：${formatFirebaseError(err)}`);
-            }
+            },
+            2500
           );
 
           if (appState.pendingAutoJoinRoom) {
             fetchAndJoinRemoteRoomByParam(appState.pendingAutoJoinRoom);
           }
 
-          lobbyChatUnsubscribe = getCloudCollection('lobby_chat').onSnapshot(
-            (snap) => {
-              const list = [];
-              snap.forEach((doc) => list.push(doc.data()));
+          lobbyChatUnsubscribe = cloudSubscribeCollection(
+            'lobby_chat',
+            (list) => {
               list.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
               appState.lobbyChat = list.slice(-MAX_LOBBY_CHAT);
               recoverNicknameFromKnownData(getMyUid());
               renderLobbyChat();
             },
-            () => {}
+            () => {},
+            3000,
+            MAX_LOBBY_CHAT
           );
         }
 
@@ -2729,20 +3013,16 @@
       }
 
       async function fetchRoomsFromCloudOnce(showFeedback = false) {
-        if (!useFirebase || !db) {
+        if (!useFirebase) {
           if (showFeedback) showToast('⚠️ Firebase 尚未連線，正在嘗試重新連線...');
           await initSyncBackend();
           return;
         }
         try {
-          const snap = await withTimeout(
-            getCloudCollection('rooms').get({ source: 'server' }),
-            8000,
-            'CONNECTION_TIMEOUT'
-          );
+          const docs = await cloudListDocs('rooms', 200);
           const freshRooms = {};
-          snap.forEach((doc) => {
-            const data = normalizeRoomFromRemote(doc.data());
+          docs.forEach((rawDoc) => {
+            const data = normalizeRoomFromRemote(rawDoc);
             if (data && data.id && !data.deleted && !appState.deletedRoomIds.has(data.id)) {
               freshRooms[data.id] = data;
             }
@@ -2786,19 +3066,16 @@
         const clean = serializeRoomForStorage(state);
         appState.rooms[state.id] = clean;
 
-        if (!useFirebase || !db) {
+        if (!useFirebase) {
           showToast('⚠️ Firebase 尚未連線，資料無法同步至雲端', 3500);
           return;
         }
 
         const firestoreDoc = serializeRoomForFirestore(clean);
-        getCloudCollection('rooms')
-          .doc(state.id)
-          .set(firestoreDoc)
-          .catch((err) => {
-            console.error('Firestore 寫入房間失敗:', err);
-            showToast(`⚠️ 雲端同步失敗：${formatFirebaseError(err)}`, 4000);
-          });
+        cloudSetDoc('rooms', state.id, firestoreDoc).catch((err) => {
+          console.error('Firestore 寫入房間失敗:', err);
+          showToast(`⚠️ 雲端同步失敗：${formatFirebaseError(err)}`, 4000);
+        });
       }
 
       function applyIncomingRoomSnapshot(rawIncoming) {
@@ -3021,22 +3298,21 @@
         const target = extractRoomKeyFromInput(rawTarget);
         if (!target) return false;
         if (tryAutoJoinPendingRoom(target)) return true;
-        if (!useFirebase || !db) return false;
+        if (!useFirebase) return false;
 
-        const roomsCol = getCloudCollection('rooms');
         try {
-          const doc = await roomsCol.doc(target).get();
-          if (doc.exists) {
-            const data = normalizeRoomFromRemote(doc.data());
+          const docData = await cloudGetDoc('rooms', target);
+          if (docData) {
+            const data = normalizeRoomFromRemote(docData);
             if (data && data.id) {
               appState.rooms[data.id] = data;
               return tryAutoJoinPendingRoom(target);
             }
           }
-          const snap = await roomsCol.get();
+          const docs = await cloudListDocs('rooms', 200);
           let matchedRoom = null;
-          snap.forEach((d) => {
-            const data = normalizeRoomFromRemote(d.data());
+          docs.forEach((rawDoc) => {
+            const data = normalizeRoomFromRemote(rawDoc);
             if (data && (data.id === target || String(data.code) === target)) {
               matchedRoom = data;
             }
@@ -3195,7 +3471,7 @@
       function sendLobbyChatMessage(rawText) {
         const text = String(rawText || '').trim().slice(0, 200);
         if (!text) return;
-        if (!useFirebase || !db) {
+        if (!useFirebase) {
           showToast('⚠️ Firebase 尚未連線，無法發送大廳訊息');
           return;
         }
@@ -3216,12 +3492,11 @@
         }
         renderLobbyChat();
 
-        const col = getCloudCollection('lobby_chat');
-        col.doc(msg.id).set(msg).catch((err) => {
+        cloudSetDoc('lobby_chat', msg.id, msg).catch((err) => {
           showToast(`⚠️ 大廳留言發送失敗：${formatFirebaseError(err)}`);
         });
         removedIds.forEach((oldId) => {
-          col.doc(oldId).delete().catch(() => {});
+          cloudDeleteDoc('lobby_chat', oldId).catch(() => {});
         });
       }
 
@@ -3279,7 +3554,7 @@
         }
 
         try {
-          if (!useFirebase || !db) {
+          if (!useFirebase) {
             throw new Error('Firebase 雲端資料庫尚未連線，請確認網路狀態後重試');
           }
           const mode = appState.createDraft.mode || 'match';
@@ -3356,11 +3631,7 @@
 
           // 嚴格等待 Firebase 寫入成功，不使用任何本地快取
           const firestoreDoc = serializeRoomForFirestore(newRoom);
-          await withTimeout(
-            getCloudCollection('rooms').doc(roomId).set(firestoreDoc),
-            8000,
-            'WRITE_TIMEOUT'
-          );
+          await cloudSetDoc('rooms', roomId, firestoreDoc);
 
           appState.rooms[roomId] = serializeRoomForStorage(newRoom);
           state = newRoom;
@@ -3521,17 +3792,13 @@
           showToast('僅房主可刪除此房間');
           return;
         }
-        if (!useFirebase || !db) {
+        if (!useFirebase) {
           showToast('❌ Firebase 尚未連線，無法刪除雲端房間');
           return;
         }
 
         try {
-          await withTimeout(
-            getCloudCollection('rooms').doc(roomId).delete(),
-            8000,
-            'DELETE_TIMEOUT'
-          );
+          await cloudDeleteDoc('rooms', roomId);
 
           appState.deletedRoomIds.add(roomId);
           delete appState.rooms[roomId];
@@ -3563,53 +3830,53 @@
         const chatBox = document.getElementById('room-chat-messages');
         if (chatBox) chatBox.innerHTML = '';
 
-        if (useFirebase && db) {
+        if (useFirebase) {
           let hasSeenRemoteDoc = false;
-          roomUnsubscribe = getCloudCollection('rooms').doc(roomId).onSnapshot(
-            (doc) => {
-              if (!doc.exists) {
+          roomUnsubscribe = cloudSubscribeDoc(
+            'rooms',
+            roomId,
+            (docData) => {
+              if (!docData) {
                 if (hasSeenRemoteDoc) {
                   handleRemoteRoomDeleted();
                 }
                 return;
               }
               hasSeenRemoteDoc = true;
-              applyIncomingRoomSnapshot(doc.data());
+              applyIncomingRoomSnapshot(docData);
             },
             (err) => {
               showToast(`⚠️ 房間同步異常：${formatFirebaseError(err)}`);
-            }
+            },
+            1200
           );
 
-          roomChatUnsubscribe = getCloudCollection('room_messages')
-            .where('roomId', '==', roomId)
-            .onSnapshot(
-              (snap) => {
-                const msgs = [];
-                snap.forEach((doc) => {
-                  const d = doc.data();
-                  if (d) msgs.push(d);
-                });
-                msgs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-                msgs.slice(-150).forEach((m) => appendRoomChatMessage(m, true));
-              },
-              () => {}
-            );
+          roomChatUnsubscribe = cloudSubscribeCollection(
+            'room_messages',
+            (allMsgs) => {
+              const msgs = allMsgs.filter((d) => d && d.roomId === roomId);
+              msgs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+              msgs.slice(-150).forEach((m) => appendRoomChatMessage(m, true));
+            },
+            () => {},
+            2000,
+            200
+          );
 
-          roomMembersUnsubscribe = getCloudCollection('room_members')
-            .where('roomId', '==', roomId)
-            .onSnapshot(
-              (snap) => {
-                const membersMap = {};
-                snap.forEach((doc) => {
-                  const m = doc.data();
-                  if (m && m.uid) membersMap[m.uid] = m;
-                });
-                appState.roomMembers = membersMap;
-                renderRoomMembersList();
-              },
-              () => {}
-            );
+          roomMembersUnsubscribe = cloudSubscribeCollection(
+            'room_members',
+            (allMembers) => {
+              const membersMap = {};
+              allMembers.forEach((m) => {
+                if (m && m.roomId === roomId && m.uid) membersMap[m.uid] = m;
+              });
+              appState.roomMembers = membersMap;
+              renderRoomMembersList();
+            },
+            () => {},
+            5000,
+            100
+          );
         } else {
           renderRoomMembersList();
         }
@@ -3639,13 +3906,17 @@
           delete targetRoom.activeMembers[myUid];
         }
 
-        if (useFirebase && db) {
-          getCloudCollection('room_members').doc(`${roomId}_${myUid}`).delete().catch(() => {});
-          if (!appState.deletedRoomIds.has(roomId) && typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) {
-            getCloudCollection('rooms')
-              .doc(roomId)
-              .update({ [`activeMembers.${myUid}`]: firebase.firestore.FieldValue.delete() })
-              .catch(() => {});
+        if (useFirebase) {
+          cloudDeleteDoc('room_members', `${roomId}_${myUid}`).catch(() => {});
+          if (!appState.deletedRoomIds.has(roomId)) {
+            if (firebaseTransport === 'sdk' && db && typeof firebase !== 'undefined' && firebase.firestore && firebase.firestore.FieldValue) {
+              getCloudCollection('rooms')
+                .doc(roomId)
+                .update({ [`activeMembers.${myUid}`]: firebase.firestore.FieldValue.delete() })
+                .catch(() => {});
+            } else if (targetRoom && targetRoom.activeMembers) {
+              cloudSetDoc('rooms', roomId, { activeMembers: targetRoom.activeMembers }, { merge: true, fieldPaths: ['activeMembers'] }).catch(() => {});
+            }
           }
         }
       }
@@ -3678,12 +3949,9 @@
           appState.rooms[roomId].activeMembers[myUid] = now;
         }
 
-        if (syncCloud && useFirebase && db && !appState.deletedRoomIds.has(roomId)) {
-          getCloudCollection('room_members').doc(`${roomId}_${myUid}`).set(entry, { merge: true }).catch(() => {});
-          getCloudCollection('rooms')
-            .doc(roomId)
-            .set({ activeMembers: { [myUid]: now } }, { merge: true })
-            .catch(() => {});
+        if (syncCloud && useFirebase && !appState.deletedRoomIds.has(roomId)) {
+          cloudSetDoc('room_members', `${roomId}_${myUid}`, entry, { merge: true }).catch(() => {});
+          cloudSetDoc('rooms', roomId, { activeMembers: { [myUid]: now } }, { merge: true, fieldPaths: [`activeMembers.${myUid}`] }).catch(() => {});
         }
       }
 
@@ -3930,8 +4198,8 @@
         appendRoomChatMessage(msg, false);
         persistCurrentRoomAndSync(true);
 
-        if (useFirebase && db) {
-          getCloudCollection('room_messages').doc(msg.id).set(msg).catch(() => {});
+        if (useFirebase) {
+          cloudSetDoc('room_messages', msg.id, msg).catch(() => {});
         }
         closeAllModals();
         showToast(`📝 已送出「${branch.name} · 第 ${branch.cursor} 手」盤面註釋`);
@@ -4102,8 +4370,8 @@
         appendRoomChatMessage(msg, false);
         persistCurrentRoomAndSync(true);
 
-        if (useFirebase && db) {
-          getCloudCollection('room_messages').doc(msg.id).set(msg).catch(() => {});
+        if (useFirebase) {
+          cloudSetDoc('room_messages', msg.id, msg).catch(() => {});
         }
         showToast(`🎙️ 已送出「${boundCtx.branchName} · 第 ${boundCtx.cursor} 手」語音講解`);
       }
@@ -4112,7 +4380,7 @@
         if (!state) return;
         const text = String(rawText || '').trim().slice(0, 200);
         if (!text) return;
-        if (!useFirebase || !db) {
+        if (!useFirebase) {
           showToast('⚠️ Firebase 尚未連線，無法發送訊息');
           return;
         }
@@ -4128,7 +4396,7 @@
         appendRoomChatMessage(msg, false);
         persistCurrentRoomAndSync(true);
 
-        getCloudCollection('room_messages').doc(msg.id).set(msg).catch((err) => {
+        cloudSetDoc('room_messages', msg.id, msg).catch((err) => {
           showToast(`⚠️ 房內訊息發送失敗：${formatFirebaseError(err)}`);
         });
       }
@@ -4223,8 +4491,8 @@
           createdAt: Date.now()
         };
         appendRoomChatMessage(msg, false);
-        if (useFirebase && db) {
-          getCloudCollection('room_messages').doc(msg.id).set(msg).catch(() => {});
+        if (useFirebase) {
+          cloudSetDoc('room_messages', msg.id, msg).catch(() => {});
         }
       }
 
@@ -4244,7 +4512,7 @@
           showToast('本局已結束，請先點擊「開新棋局」開放席位');
           return;
         }
-        if (!useFirebase || !db) {
+        if (!useFirebase) {
           showToast('❌ Firebase 尚未連線，無法入座');
           return;
         }
@@ -4252,45 +4520,63 @@
         const vault = getMyVaultCode();
         const name = getMyNickname();
 
-        const docRef = getCloudCollection('rooms').doc(state.id);
-        db.runTransaction(async (tx) => {
-          const snap = await tx.get(docRef);
-          if (!snap.exists) throw new Error('ROOM_MISSING');
-          const data = snap.data();
-          if (data.status === 'finished') throw new Error('FINISHED');
-          const isMyBlack = data.blackUid === uid || (data.blackVaultCode && vault && data.blackVaultCode === vault);
-          const isMyWhite = data.whiteUid === uid || (data.whiteVaultCode && vault && data.whiteVaultCode === vault);
-          if (color === 'B') {
-            if (data.blackUid && !isMyBlack) throw new Error('TAKEN');
-            if (isMyWhite) {
-              data.whiteUid = null;
-              data.whiteVaultCode = null;
-              data.whiteName = '';
+        const executeSeatClaim = async () => {
+          if (firebaseTransport === 'sdk' && db) {
+            const docRef = getCloudCollection('rooms').doc(state.id);
+            return db.runTransaction(async (tx) => {
+              const snap = await tx.get(docRef);
+              if (!snap.exists) throw new Error('ROOM_MISSING');
+              const data = snap.data();
+              if (data.status === 'finished') throw new Error('FINISHED');
+              const isMyBlack = data.blackUid === uid || (data.blackVaultCode && vault && data.blackVaultCode === vault);
+              const isMyWhite = data.whiteUid === uid || (data.whiteVaultCode && vault && data.whiteVaultCode === vault);
+              if (color === 'B') {
+                if (data.blackUid && !isMyBlack) throw new Error('TAKEN');
+                if (isMyWhite) { data.whiteUid = null; data.whiteVaultCode = null; data.whiteName = ''; }
+                data.blackUid = uid; data.blackVaultCode = vault; data.blackName = name;
+              } else if (color === 'W') {
+                if (data.whiteUid && !isMyWhite) throw new Error('TAKEN');
+                if (isMyBlack) { data.blackUid = null; data.blackVaultCode = null; data.blackName = ''; }
+                data.whiteUid = uid; data.whiteVaultCode = vault; data.whiteName = name;
+              }
+              const now = Date.now();
+              if (data.blackUid && data.whiteUid && data.status === 'waiting') {
+                data.status = 'playing';
+                data.lastTickAt = now;
+              }
+              data.updatedAt = now;
+              data.lastActivityAt = now;
+              tx.set(docRef, data);
+              return data;
+            });
+          } else {
+            const data = await cloudGetDoc('rooms', state.id);
+            if (!data) throw new Error('ROOM_MISSING');
+            if (data.status === 'finished') throw new Error('FINISHED');
+            const isMyBlack = data.blackUid === uid || (data.blackVaultCode && vault && data.blackVaultCode === vault);
+            const isMyWhite = data.whiteUid === uid || (data.whiteVaultCode && vault && data.whiteVaultCode === vault);
+            if (color === 'B') {
+              if (data.blackUid && !isMyBlack) throw new Error('TAKEN');
+              if (isMyWhite) { data.whiteUid = null; data.whiteVaultCode = null; data.whiteName = ''; }
+              data.blackUid = uid; data.blackVaultCode = vault; data.blackName = name;
+            } else if (color === 'W') {
+              if (data.whiteUid && !isMyWhite) throw new Error('TAKEN');
+              if (isMyBlack) { data.blackUid = null; data.blackVaultCode = null; data.blackName = ''; }
+              data.whiteUid = uid; data.whiteVaultCode = vault; data.whiteName = name;
             }
-            data.blackUid = uid;
-            data.blackVaultCode = vault;
-            data.blackName = name;
-          } else if (color === 'W') {
-            if (data.whiteUid && !isMyWhite) throw new Error('TAKEN');
-            if (isMyBlack) {
-              data.blackUid = null;
-              data.blackVaultCode = null;
-              data.blackName = '';
+            const now = Date.now();
+            if (data.blackUid && data.whiteUid && data.status === 'waiting') {
+              data.status = 'playing';
+              data.lastTickAt = now;
             }
-            data.whiteUid = uid;
-            data.whiteVaultCode = vault;
-            data.whiteName = name;
+            data.updatedAt = now;
+            data.lastActivityAt = now;
+            await cloudSetDoc('rooms', state.id, data);
+            return data;
           }
-          const now = Date.now();
-          if (data.blackUid && data.whiteUid && data.status === 'waiting') {
-            data.status = 'playing';
-            data.lastTickAt = now;
-          }
-          data.updatedAt = now;
-          data.lastActivityAt = now;
-          tx.set(docRef, data);
-          return data;
-        })
+        };
+
+        executeSeatClaim()
           .then((updated) => {
             syncVaultProfileToCloud(vault, uid, name);
             applyIncomingRoomSnapshot(updated);
@@ -5831,10 +6117,8 @@
         appState.records = currentList;
         renderLobbyRecords();
 
-        if (useFirebase && db) {
-          getCloudCollection('vault_records')
-            .doc(rec.id)
-            .set(rec)
+        if (useFirebase) {
+          cloudSetDoc('vault_records', rec.id, rec)
             .then(() => {
               syncVaultProfileToCloud(vaultCode, getMyUid(), getMyNickname());
               showToast(`☁️ 已存入雲端識別碼「${vaultCode}」！`);
@@ -5856,10 +6140,8 @@
         appState.records = filtered;
         renderLobbyRecords();
 
-        if (useFirebase && db) {
-          getCloudCollection('vault_records')
-            .doc(recId)
-            .delete()
+        if (useFirebase) {
+          cloudDeleteDoc('vault_records', recId)
             .then(() => {
               showToast('已從雲端棋譜庫刪除');
             })
@@ -5918,8 +6200,8 @@
             };
             existing.unshift(rec);
             addedCount++;
-            if (useFirebase && db) {
-              getCloudCollection('vault_records').doc(rec.id).set(rec).catch(() => {});
+            if (useFirebase) {
+              cloudSetDoc('vault_records', rec.id, rec).catch(() => {});
             }
           });
 
@@ -5966,7 +6248,7 @@
 
       async function openStudyRoomWithRecord(record) {
         if (!record) return;
-        if (!useFirebase || !db) {
+        if (!useFirebase) {
           showToast('❌ Firebase 尚未連線，無法建立覆盤研究室');
           return;
         }
@@ -6008,11 +6290,7 @@
         studyRoom.turn = snap.turn;
 
         try {
-          await withTimeout(
-            getCloudCollection('rooms').doc(roomId).set(serializeRoomForFirestore(studyRoom)),
-            8000,
-            'WRITE_TIMEOUT'
-          );
+          await cloudSetDoc('rooms', roomId, serializeRoomForFirestore(studyRoom));
           appState.rooms[roomId] = serializeRoomForStorage(studyRoom);
           enterRoom(roomId);
         } catch (err) {
