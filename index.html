@@ -3511,14 +3511,29 @@
           return hay.includes(q);
         });
 
-        list.sort((a, b) => (b.lastActivityAt || b.createdAt || 0) - (a.lastActivityAt || a.createdAt || 0));
+        // 判斷是否為「等待對手入座」的對弈房間，並優先排在列表最上方
+        const isWaitingMatchRoom = (r) =>
+          r && r.mode !== 'study' && r.status !== 'finished' && (!r.blackUid || !r.whiteUid);
+
+        list.sort((a, b) => {
+          const aWaiting = isWaitingMatchRoom(a) ? 1 : 0;
+          const bWaiting = isWaitingMatchRoom(b) ? 1 : 0;
+          if (aWaiting !== bWaiting) return bWaiting - aWaiting;
+          return (b.lastActivityAt || b.createdAt || 0) - (a.lastActivityAt || a.createdAt || 0);
+        });
+
+        const waitingMatchCount = list.filter(isWaitingMatchRoom).length;
 
         if (!appState.roomsLoadedFromCloud && useFirebase) {
           label.textContent = '正在從 Firebase 載入房間...';
         } else {
-          label.textContent = q
+          const baseText = q
             ? `搜尋結果：共 ${list.length} 間雲端房間`
             : `Firebase 線上活躍房間：${list.length} 間`;
+          const waitingPill = waitingMatchCount > 0
+            ? `<span class="ml-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500 text-stone-950 font-black text-[11px] shadow-2xs">🔥 ${waitingMatchCount} 間等待對局</span>`
+            : '';
+          label.innerHTML = `${escapeHtml(baseText)}${waitingPill}`;
         }
 
         if (!list.length) {
@@ -3531,6 +3546,7 @@
 
         grid.innerHTML = list.map((r) => {
           const isStudy = r.mode === 'study';
+          const isWaitingMatch = isWaitingMatchRoom(r);
           const isHost = isRoomHost(r);
           const isStale = now - (r.lastActivityAt || r.createdAt || now) > DAY_24_MS;
           const memberCount = getRoomOnlineCount(r);
@@ -3546,24 +3562,66 @@
           } else if (r.blackUid && r.whiteUid) {
             statusBadge = `<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold">⚔️ 對弈中</span>`;
           } else {
-            statusBadge = `<span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-[11px] font-bold">🪑 等待入座</span>`;
+            const openSeatText = !r.blackUid && !r.whiteUid
+              ? '雙席開放'
+              : !r.blackUid
+                ? '缺黑方'
+                : '缺白方';
+            statusBadge = `
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500 text-stone-950 text-[11px] font-black shadow-2xs">
+                <span class="relative flex h-2 w-2 shrink-0">
+                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-stone-950 opacity-60"></span>
+                  <span class="relative inline-flex rounded-full h-2 w-2 bg-stone-950"></span>
+                </span>
+                <span>等待對局 · ${openSeatText}</span>
+              </span>`;
           }
 
-          const playersInfo = isStudy
-            ? `<div class="text-xs text-stone-600 truncate">🎙️ 主講：${escapeHtml(r.studyControllerName || '無人主講（可接手）')}</div>`
-            : `<div class="text-xs text-stone-600 flex items-center justify-between gap-1">
-                 <span class="truncate">● ${escapeHtml(r.blackName || '空席')}</span>
-                 <span class="text-stone-400">vs</span>
-                 <span class="truncate">○ ${escapeHtml(r.whiteName || '空席')}</span>
-               </div>`;
+          const timeSummary = !isStudy
+            ? ((r.mainTime || 0) === 0 && (r.byoyomiSeconds || 0) === 0
+              ? ' · 自由時間'
+              : ` · ${(r.mainTime || 0) > 0 ? formatSeconds(r.mainTime) : '0秒'}${r.byoyomiSeconds ? `+${formatByoyomiShortLabel(r.byoyomiSeconds)}` : ''}`)
+            : '';
+
+          let playersInfo = '';
+          if (isStudy) {
+            playersInfo = `<div class="text-xs text-stone-600 truncate">🎙️ 主講：${escapeHtml(r.studyControllerName || '無人主講（可接手）')}</div>`;
+          } else if (isWaitingMatch) {
+            const blackSlot = r.blackUid
+              ? `<span class="truncate font-semibold text-stone-800">● ${escapeHtml(r.blackName || '黑方')}</span>`
+              : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-dashed border-amber-500 text-amber-900 font-bold text-[11px] shrink-0">● 空席待入座</span>`;
+            const whiteSlot = r.whiteUid
+              ? `<span class="truncate font-semibold text-stone-800">○ ${escapeHtml(r.whiteName || '白方')}</span>`
+              : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white border border-dashed border-amber-500 text-amber-900 font-bold text-[11px] shrink-0">○ 空席待入座</span>`;
+            playersInfo = `<div class="text-xs flex items-center justify-between gap-1.5 pt-0.5">
+              ${blackSlot}
+              <span class="text-amber-600 font-black text-[11px] shrink-0">VS</span>
+              ${whiteSlot}
+            </div>`;
+          } else {
+            playersInfo = `<div class="text-xs text-stone-600 flex items-center justify-between gap-1">
+              <span class="truncate">● ${escapeHtml(r.blackName || '空席')}</span>
+              <span class="text-stone-400">vs</span>
+              <span class="truncate">○ ${escapeHtml(r.whiteName || '空席')}</span>
+            </div>`;
+          }
+
+          const cardClass = isWaitingMatch
+            ? 'room-card group cursor-pointer bg-gradient-to-br from-amber-50 via-white to-orange-50/80 hover:from-amber-100/80 hover:to-orange-50 rounded-2xl border-2 border-amber-400 hover:border-amber-500 ring-2 ring-amber-400/25 p-3.5 shadow-md hover:shadow-lg transition flex flex-col justify-between gap-2.5'
+            : 'room-card cursor-pointer bg-white hover:border-amber-500 rounded-2xl border border-stone-200 p-3.5 shadow-xs transition flex flex-col justify-between gap-2.5';
+
+          const footerDividerClass = isWaitingMatch ? 'border-amber-200/80' : 'border-stone-100';
+          const actionCtaHtml = isWaitingMatch
+            ? '<span class="px-2.5 py-1 rounded-lg bg-amber-600 group-hover:bg-amber-500 text-white font-bold shadow-2xs shrink-0 transition">⚡ 立即應戰 →</span>'
+            : '<span class="font-bold text-amber-700 shrink-0">進入房間 →</span>';
 
           return `
-            <div data-enter-room="${escapeHtml(r.id)}" class="room-card cursor-pointer bg-white hover:border-amber-500 rounded-2xl border border-stone-200 p-3.5 shadow-xs transition flex flex-col justify-between gap-2.5">
+            <div data-enter-room="${escapeHtml(r.id)}" class="${cardClass}">
               <div class="space-y-1.5">
                 <div class="flex items-center justify-between gap-1.5">
                   <div class="flex items-center gap-1.5 flex-wrap">
                     ${statusBadge}
-                    <span class="text-[11px] font-bold text-stone-500">${r.boardSize || 19}路 · #${escapeHtml(r.code || '')}</span>
+                    <span class="text-[11px] font-bold text-stone-500">${r.boardSize || 19}路 · #${escapeHtml(r.code || '')}${escapeHtml(timeSummary)}</span>
                     ${isStale ? '<span class="px-1.5 py-0.5 rounded bg-stone-100 text-stone-500 text-[10px]">超過24h</span>' : ''}
                   </div>
                   ${isHost ? `<button type="button" data-delete-room-lobby="${escapeHtml(r.id)}" class="px-2 py-0.5 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold">刪除</button>` : ''}
@@ -3571,7 +3629,7 @@
                 <div class="font-bold text-sm text-stone-900 truncate">${escapeHtml(r.title || '圍棋房間')}</div>
                 ${playersInfo}
               </div>
-              <div class="pt-2 border-t border-stone-100 flex items-center justify-between gap-1.5 text-[11px] text-stone-500">
+              <div class="pt-2 border-t ${footerDividerClass} flex items-center justify-between gap-1.5 text-[11px] text-stone-500">
                 <div class="flex items-center gap-2 min-w-0">
                   <span class="inline-flex items-center gap-1 font-semibold shrink-0 ${memberCount > 0 ? 'text-emerald-700' : 'text-stone-400'}">
                     <span class="w-1.5 h-1.5 rounded-full ${memberCount > 0 ? 'bg-emerald-500' : 'bg-stone-300'}"></span>
@@ -3580,7 +3638,7 @@
                   <span class="text-stone-300">|</span>
                   <span class="truncate">進度：第 ${moveCount} 手</span>
                 </div>
-                <span class="font-bold text-amber-700 shrink-0">進入房間 →</span>
+                ${actionCtaHtml}
               </div>
             </div>`;
         }).join('');
@@ -4108,23 +4166,28 @@
           lastSeenAt: now
         };
 
+        // 防禦性綁定選手、主講人與房主資訊，避免未在線成員索引為 undefined 時拋錯
         if (state.mode === 'match') {
-          if (state.blackUid && merged[state.blackUid]) {
-            if (state.blackName) merged[state.blackUid].name = state.blackName;
-            if (state.blackVaultCode) merged[state.blackUid].vaultCode = state.blackVaultCode;
+          const blackMember = state.blackUid ? merged[state.blackUid] : null;
+          if (blackMember) {
+            if (state.blackName) blackMember.name = state.blackName;
+            if (state.blackVaultCode) blackMember.vaultCode = state.blackVaultCode;
           }
-          if (state.whiteUid && merged[state.whiteUid]) {
-            if (state.whiteName) merged[state.whiteUid].name = state.whiteName;
-            if (state.whiteVaultCode) merged[state.whiteUid].vaultCode = state.whiteVaultCode;
+          const whiteMember = state.whiteUid ? merged[state.whiteUid] : null;
+          if (whiteMember) {
+            if (state.whiteName) whiteMember.name = state.whiteName;
+            if (state.whiteVaultCode) whiteMember.vaultCode = state.whiteVaultCode;
           }
         } else if (state.mode === 'study') {
-          if (state.studyControllerUid && merged[state.studyControllerUid]) {
-            if (state.studyControllerName) merged[state.studyControllerUid].name = state.studyControllerName;
-            if (state.studyControllerVaultCode) merged[state.studyControllerUid].vaultCode = state.studyControllerVaultCode;
+          const presenterMember = state.studyControllerUid ? merged[state.studyControllerUid] : null;
+          if (presenterMember) {
+            if (state.studyControllerName) presenterMember.name = state.studyControllerName;
+            if (state.studyControllerVaultCode) presenterMember.vaultCode = state.studyControllerVaultCode;
           }
         }
-        if (state.hostUid && merged[state.hostUid] && state.hostVaultCode && !merged[state.hostUid].vaultCode) {
-          merged[state.hostUid].vaultCode = state.hostVaultCode;
+        const hostMember = state.hostUid ? merged[state.hostUid] : null;
+        if (hostMember && state.hostVaultCode && !hostMember.vaultCode) {
+          hostMember.vaultCode = state.hostVaultCode;
         }
 
         const getRolePriority = (m) => {
