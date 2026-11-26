@@ -70,4 +70,5 @@
 > （小提醒：研究室與已結束對弈室 24 小時沒活動會自動隱藏、已結束對弈室 15 天沒活動會刪除，重要棋局記得按「儲存棋譜」收藏喔！）
 >
 > 👉 立即遊玩：https://cxxlmanself.github.io/weiqi/
+> 
 > 📖 使用簡介：https://cxxlmanself.github.io/weiqi/doc
