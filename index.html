@@ -4695,8 +4695,10 @@
           return;
         }
 
+        // 若連點同一預選交叉點，維持預覽狀態而不直接落子，必須點擊「確認落子」按鈕才送出
         if (appState.pendingMove && appState.pendingMove.x === x && appState.pendingMove.y === y) {
-          confirmPendingMatchMove();
+          updateMatchPrimaryActionBar();
+          drawBoard();
           return;
         }
 
@@ -4715,9 +4717,10 @@
       function confirmPendingMatchMove() {
         if (!state || state.mode !== 'match' || !appState.pendingMove) return;
         const { x, y } = appState.pendingMove;
+        // 立即清除預選座標，防止連點「確認落子」按鈕造成重複送出
+        appState.pendingMove = null;
         const role = getMyRole();
         if (role === 'S' || state.turn !== role || state.status === 'finished') {
-          appState.pendingMove = null;
           updateMatchPrimaryActionBar();
           drawBoard();
           return;
@@ -6746,6 +6749,7 @@
       let touchStartPos = null;
       let touchMoved = false;
       let lastTouchTriggerAt = 0;
+      let lastCanvasSelectAt = 0;
 
       if (canvas) {
         canvas.addEventListener('touchstart', (e) => {
@@ -6774,9 +6778,13 @@
 
         canvas.addEventListener('touchend', (e) => {
           if (touchStartPos && !touchMoved && e.changedTouches.length === 1) {
-            lastTouchTriggerAt = Date.now();
-            const t = e.changedTouches[0];
-            handleCanvasPointSelection(t.clientX, t.clientY);
+            const now = Date.now();
+            lastTouchTriggerAt = now;
+            if (now - lastCanvasSelectAt >= 180) {
+              lastCanvasSelectAt = now;
+              const t = e.changedTouches[0];
+              handleCanvasPointSelection(t.clientX, t.clientY);
+            }
           }
           touchStartPos = null;
           touchMoved = false;
@@ -6788,7 +6796,12 @@
         }, { passive: true });
 
         canvas.addEventListener('click', (e) => {
-          if (Date.now() - lastTouchTriggerAt < 450) return;
+          const now = Date.now();
+          // 過濾觸控後的延遲模擬點擊、系統雙擊 (e.detail > 1) 與極短時間連點
+          if (now - lastTouchTriggerAt < 800) return;
+          if (e.detail && e.detail > 1) return;
+          if (now - lastCanvasSelectAt < 180) return;
+          lastCanvasSelectAt = now;
           handleCanvasPointSelection(e.clientX, e.clientY);
         });
       }
