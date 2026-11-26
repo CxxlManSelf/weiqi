@@ -1,1 +1,55 @@
+name: Cleanup Inactive Match Rooms
 
+on:
+  schedule:
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Delete match rooms inactive for over 15 days
+        run: |
+          node << 'EOF'
+          const DB_BASE_URL = 'https://my-go-a276e-default-rtdb.firebaseio.com/weiqi';
+          const FIFTEEN_DAYS_MS = 15 * 24 * 60 * 60 * 1000;
+          const now = Date.now();
+
+          async function main() {
+            const res = await fetch(`${DB_BASE_URL}/rooms.json`);
+            if (!res.ok) {
+              throw new Error(`HTTP ${res.status} ${res.statusText}`);
+            }
+
+            const rooms = await res.json();
+            if (!rooms || typeof rooms !== 'object') {
+              return;
+            }
+
+            for (const [id, room] of Object.entries(rooms)) {
+              if (!room || typeof room !== 'object') continue;
+              if (room.mode !== 'match') continue;
+
+              const lastAct = Number(room.lastActivityAt || room.updatedAt || room.createdAt || 0);
+              if (lastAct > 0 && now - lastAct > FIFTEEN_DAYS_MS) {
+                await fetch(`${DB_BASE_URL}/rooms/${encodeURIComponent(id)}.json`, { method: 'DELETE' });
+                await fetch(`${DB_BASE_URL}/room_messages/${encodeURIComponent(id)}.json`, { method: 'DELETE' });
+                console.log(`Deleted: ${id}`);
+              }
+            }
+          }
+
+          main().catch((err) => {
+            console.error(err);
+            process.exit(1);
+          });
+          EOF
