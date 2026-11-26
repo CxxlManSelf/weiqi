@@ -58,4 +58,5 @@
 > 免下載、免註冊，手機跟電腦打開網址就能直接下棋或一起擺盤覆盤，還能一鍵複製房間連結揪人進房～
 >
 > 👉 立即遊玩：https://cxxlmanself.github.io/weiqi/
+> 
 > 📖 使用簡介：https://github.com/cxxlmanself/weiqi/blob/main/README.md
