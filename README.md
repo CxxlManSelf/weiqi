@@ -4,8 +4,8 @@
 
 **「雲端圍棋對弈與研究室」**是一款免下載、打開瀏覽器就能立即使用的免費線上圍棋平台，支援手機、平板與電腦即時同步！
 
-* 👉 **立即開啟使用：** <https://cxxlmanself.github.io/weiqi/>
-* 📖 **完整使用簡介：** <https://github.com/cxxlmanself/weiqi/blob/main/README.md>
+* 👉 **立即開啟使用：** <https://cxxlmanself.github.io/weiqi/app/index>
+* 📖 **完整使用簡介：** <https://cxxlmanself.github.io/weiqi>
 
 ---
 
@@ -44,11 +44,11 @@
 
 ## 🚀 三步驟快速上手
 
-1. **點擊網址進入大廳**：開啟 <https://cxxlmanself.github.io/weiqi/>，點擊右上角可修改棋友暱稱（建議順便記下或自訂您的「專屬雲端識別碼」）。
+1. **點擊網址進入大廳**：開啟 <https://cxxlmanself.github.io/weiqi/app/index>，點擊右上角可修改棋友暱稱（建議順便記下或自訂您的「專屬雲端識別碼」）。
 2. **建立或加入房間**：
    * 點擊 **「＋ 建立房間」**，選擇「雙人對弈」或「擺盤研究室」與棋盤大小。
    * 或直接點擊大廳列表上方醒目的「等待對局」房間立即應戰。
-3. **分享連結開戰／研究**：進入房間後點擊頂部的 **「🔗 分享連結」** 傳給朋友即可開始！更多詳細功能說明請參閱 [使用簡介](https://github.com/cxxlmanself/weiqi/blob/main/README.md)。
+3. **分享連結開戰／研究**：進入房間後點擊頂部的 **「🔗 分享連結」** 傳給朋友即可開始！更多詳細功能說明請參閱 [使用簡介](https://cxxlmanself.github.io/weiqi)。
 
 ---
 
@@ -57,6 +57,6 @@
 > 推薦大家一個免費又好用的線上圍棋網站「雲端圍棋對弈與研究室」！
 > 免下載、免註冊，手機跟電腦打開網址就能直接下棋或一起擺盤覆盤，還能一鍵複製房間連結揪人進房～
 >
-> 👉 立即遊玩：https://cxxlmanself.github.io/weiqi/
+> 👉 立即遊玩：https://cxxlmanself.github.io/weiqi/app/index
 > 
-> 📖 使用簡介：https://github.com/cxxlmanself/weiqi/blob/main/README.md
+> 📖 使用簡介：https://cxxlmanself.github.io/weiqi
