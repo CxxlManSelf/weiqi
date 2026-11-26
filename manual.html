@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="雲端圍棋對弈與研究室使用說明：建立房間、雙人對弈、擺盤研究及 SGF 棋譜操作。">
+  <title>使用說明｜雲端圍棋對弈與研究室</title>
+  <style>
+    :root { color-scheme: light; --ink: #29251f; --muted: #6b6257; --paper: #fffdf8; --bg: #f3efe7; --accent: #9a5d19; --line: #e7dfd2; --green: #34664c; }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 1.5rem; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.8 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif; }
+    a { color: #81500f; text-underline-offset: .2em; }
+    a:hover { color: #4b3213; }
+    .hero { padding: 3.5rem 1.25rem 3rem; text-align: center; color: #fffaf0; background: linear-gradient(135deg, #29251f, #4a3927); }
+    .hero .stone { font-size: 2rem; }
+    .hero h1 { margin: .25rem 0 .5rem; font-size: clamp(1.8rem, 5vw, 3rem); line-height: 1.25; }
+    .hero p { max-width: 700px; margin: .75rem auto 1.5rem; color: #eee2ce; }
+    .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: .75rem; }
+    .button { display: inline-block; padding: .65rem 1.1rem; border: 1px solid #d5aa67; border-radius: 999px; color: #fff; text-decoration: none; font-weight: 700; }
+    .button.primary { background: #d29a43; border-color: #d29a43; color: #241d14; }
+    .layout { display: grid; grid-template-columns: minmax(190px, 240px) minmax(0, 780px); gap: 1.5rem; width: min(1120px, 100%); margin: 2rem auto; padding: 0 1.25rem; align-items: start; }
+    nav, main { background: var(--paper); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 8px 24px #44341d0a; }
+    nav { position: sticky; top: 1rem; padding: 1.1rem; }
+    nav strong { display: block; margin-bottom: .45rem; }
+    nav ul { margin: 0; padding-left: 1.2rem; }
+    nav li { margin: .25rem 0; }
+    nav a { text-decoration: none; }
+    main { padding: clamp(1.2rem, 4vw, 2.5rem); }
+    section + section { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
+    h2 { margin: 0 0 .8rem; font-size: 1.55rem; line-height: 1.4; }
+    h3 { margin: 1.4rem 0 .4rem; font-size: 1.12rem; }
+    p { margin: .6rem 0; }
+    li { padding-left: .15rem; }
+    li + li { margin-top: .35rem; }
+    .callout { margin: 1rem 0; padding: .85rem 1rem; border-left: 4px solid #d29a43; border-radius: 0 10px 10px 0; background: #fbf3e4; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .8rem; margin-top: 1rem; }
+    .card { padding: 1rem; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+    .card h3 { margin: 0 0 .35rem; }
+    .card p { margin: 0; color: var(--muted); font-size: .95rem; }
+    details { margin: .65rem 0; padding: .75rem 1rem; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+    summary { cursor: pointer; font-weight: 700; }
+    footer { padding: 1rem 1.25rem 2rem; text-align: center; color: var(--muted); }
+    @media (max-width: 760px) { .layout { grid-template-columns: 1fr; margin-top: 1rem; } nav { position: static; } nav ul { columns: 2; } }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="stone" aria-hidden="true">⚫⚪</div>
+    <h1>雲端圍棋對弈與研究室</h1>
+    <p>免下載、免註冊，打開瀏覽器即可與朋友對弈、觀戰，或一起擺盤覆盤。手機、平板與電腦都能使用。</p>
+    <div class="actions">
+      <a class="button primary" href="/weiqi/">🎮 開啟圍棋大廳</a>
+      <a class="button" href="https://github.com/CxxlManSelf/weiqi">查看 GitHub 專案</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav aria-label="使用說明目錄">
+      <strong>📚 使用目錄</strong>
+      <ul>
+        <li><a href="#start">快速開始</a></li>
+        <li><a href="#lobby">大廳與房間</a></li>
+        <li><a href="#match">雙人對弈</a></li>
+        <li><a href="#study">擺盤研究室</a></li>
+        <li><a href="#records">棋譜與 SGF</a></li>
+        <li><a href="#identity">識別碼與同步</a></li>
+        <li><a href="#faq">常見問題</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <section id="start">
+        <h2>🚀 快速開始</h2>
+        <ol>
+          <li>開啟<a href="/weiqi/">雲端圍棋大廳</a>。</li>
+          <li>點選右上角暱稱，設定顯示名稱；也可確認或自訂雲端識別碼。</li>
+          <li>按「＋ 建立房間」選擇「雙人對弈」或「擺盤研究室」，也可以直接加入大廳現有房間。</li>
+          <li>進入房間後按「🔗 分享連結」，把連結傳給朋友即可邀請對方加入。</li>
+        </ol>
+        <p class="callout">💡 使用相同雲端識別碼，可在其他裝置找回對應的角色資料與雲端棋譜。請妥善保管識別碼及自行設定的 PIN。</p>
+      </section>
+
+      <section id="lobby">
+        <h2>🏠 大廳與房間</h2>
+        <p>大廳可瀏覽房間、搜尋房間名稱或房號、加入對局，也能使用大廳聊天室與棋友交流。建立房間時，選擇用途及棋盤路數：</p>
+        <div class="cards">
+          <article class="card"><h3>⚔️ 雙人對弈</h3><p>兩位棋手分執黑白對局，旁觀者也能觀看棋局與自行推演。</p></article>
+          <article class="card"><h3>🔬 擺盤研究室</h3><p>適合教學、覆盤與棋型研究，可共同查看盤面及討論變化。</p></article>
+        </div>
+        <p>兩種房間皆支援 19 路、13 路及 9 路棋盤。建立後可分享房間連結，讓棋友直接進房。</p>
+      </section>
+
+      <section id="match">
+        <h2>⚔️ 雙人對弈</h2>
+        <h3>建立對局</h3>
+        <ol>
+          <li>在大廳按「＋ 建立房間」，選擇「雙人對弈」與棋盤路數。</li>
+          <li>依需要設定基本時限、讀秒規則、等待入席時限及房主初始席位。</li>
+          <li>建立後入座，或分享房間連結邀請對手；雙方入座後即可開始。</li>
+        </ol>
+        <h3>對局工具</h3>
+        <ul>
+          <li><strong>棋鐘：</strong>可選自由時間、快棋時限或較長時限的通信慢棋，並可搭配讀秒。</li>
+          <li><strong>落子與棋規：</strong>支援提子、打劫判斷、虛手（Pass）、請求悔棋及認輸。</li>
+          <li><strong>觸控預覽：</strong>手機點選交叉點可先預覽落子位置，確認後再落子。</li>
+          <li><strong>數子參考：</strong>可使用「數子點目」工具作為終局參考。</li>
+          <li><strong>觀戰推演：</strong>旁觀者可在本機畫面試下變化，不影響實況；按「回到實況」即可跟上最新棋局。</li>
+          <li><strong>對局續開：</strong>對局結束後可儲存棋譜，房主亦可開啟新棋局。</li>
+        </ul>
+      </section>
+
+      <section id="study">
+        <h2>🔬 擺盤研究室</h2>
+        <ul>
+          <li><strong>多人同步研究：</strong>房內棋友可以一起觀看主講人的盤面進度。</li>
+          <li><strong>主講權交接：</strong>主講人可放棄擺盤權，讓其他棋友接手操作。</li>
+          <li><strong>變化圖分支：</strong>建立多條變化圖，逐步比較不同下法與結果。</li>
+          <li><strong>自由擺子：</strong>切換「擺子」模式放置或移除黑白棋子，適合研究死活題與局部棋形。</li>
+          <li><strong>手數導覽：</strong>使用控制列前後瀏覽棋局，也可調整手數編號。</li>
+          <li><strong>盤面註釋：</strong>主講人新增註釋後，其他棋友可點擊聊天室中的註釋卡片，跳轉至對應的分支與手數。</li>
+          <li><strong>個人推演：</strong>旁觀者可自行試下變化，不會改動共享盤面，並可隨時跟回主講進度。</li>
+        </ul>
+      </section>
+
+      <section id="records">
+        <h2>☁️ 雲端棋譜庫與 SGF</h2>
+        <p>對局或研究完成後，可以把棋譜存入雲端棋譜庫，日後再開啟覆盤。棋譜庫支援標準 SGF 格式：</p>
+        <ul>
+          <li>儲存棋譜至雲端棋譜庫，或下載為 `.sgf` 檔案。</li>
+          <li>在擺盤研究室上傳 `.sgf` 檔案，或貼上 SGF 文字匯入。</li>
+          <li>複製 SGF 文字分享棋譜。</li>
+          <li>匯出棋譜庫備份，並可於需要時還原。</li>
+        </ul>
+      </section>
+
+      <section id="identity">
+        <h2>🔑 識別碼與跨裝置同步</h2>
+        <p>右上角暱稱設定可檢視或切換雲端識別碼，也可設定自訂代號。若要在另一台手機或電腦找回資料，請使用原本的識別碼；若設定過 PIN，也需輸入正確 PIN。</p>
+        <p class="callout">識別碼是找回角色與棋譜的重要資訊。請自行保存，並勿將 PIN 分享給他人。</p>
+      </section>
+
+      <section id="faq">
+        <h2>❓ 常見問題</h2>
+        <details><summary>如何邀請朋友直接進房？</summary><p>進入房間後點選「🔗 分享連結」，複製連結傳給朋友；對方開啟連結即可進入。</p></details>
+        <details><summary>換裝置後如何找回我的棋譜？</summary><p>在新裝置開啟網站，透過右上角暱稱設定切換到原本的雲端識別碼；有設定 PIN 時也請一併輸入。</p></details>
+        <details><summary>可以匯入既有棋譜嗎？</summary><p>可以。在擺盤研究室載入棋譜，上傳 `.sgf` 檔案或貼上 SGF 棋譜文字即可。</p></details>
+        <details><summary>旁觀者試下會影響對局或研究盤面嗎？</summary><p>不會。觀戰及旁觀推演在自己的畫面上進行，不會更動棋手實況或共享研究盤面。</p></details>
+      </section>
+
+      <p class="callout"><strong>準備好下棋了嗎？</strong> <a href="/weiqi/">前往圍棋大廳開始使用 →</a></p>
+    </main>
+  </div>
+  <footer>雲端圍棋對弈與研究室 · 網頁版使用說明</footer>
+</body>
+</html>
