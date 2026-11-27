@@ -174,7 +174,7 @@
               <span id="lobby-waiting-count-badge" class="hidden inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-black">🔥 0 間等待對局</span>
             </div>
             <div class="flex items-center gap-2 shrink-0">
-              <span class="hidden sm:inline text-[11px] text-stone-400">Realtime Database 即時同步</span>
+              <span class="hidden sm:inline text-[11px] text-stone-400">條件索引即時同步</span>
               <button id="refresh-rooms-btn" type="button" class="px-2 py-0.5 rounded-lg bg-white hover:bg-stone-100 border border-stone-300 text-stone-700 text-[11px] font-bold transition">🔄 刷新雲端</button>
             </div>
           </div>
@@ -1435,59 +1435,62 @@
         const canMatchByNick = !isDefaultGuestNickname(myNick);
         let reclaimedCount = 0;
 
-        const syncSingleRoomOwnership = (r) => {
-          if (!r) return false;
+        const computeOwnershipPatch = (r) => {
+          if (!r) return null;
+          const patch = {};
           let changed = false;
 
           const matchHost =
             (myVault && r.hostVaultCode === myVault) ||
             (r.hostUid === myUid);
           if (matchHost) {
-            if (r.hostUid !== myUid) { r.hostUid = myUid; changed = true; }
-            if (myVault && r.hostVaultCode !== myVault) { r.hostVaultCode = myVault; changed = true; }
-            if (canMatchByNick && r.hostName !== myNick) { r.hostName = myNick; changed = true; }
+            if (r.hostUid !== myUid) { r.hostUid = myUid; patch.hostUid = myUid; changed = true; }
+            if (myVault && r.hostVaultCode !== myVault) { r.hostVaultCode = myVault; patch.hostVaultCode = myVault; changed = true; }
+            if (canMatchByNick && r.hostName !== myNick) { r.hostName = myNick; patch.hostName = myNick; changed = true; }
           }
 
           const matchBlack =
             (myVault && r.blackVaultCode === myVault) ||
             (r.blackUid === myUid);
           if (matchBlack) {
-            if (r.blackUid !== myUid) { r.blackUid = myUid; changed = true; }
-            if (myVault && r.blackVaultCode !== myVault) { r.blackVaultCode = myVault; changed = true; }
-            if (canMatchByNick && r.blackName !== myNick) { r.blackName = myNick; changed = true; }
+            if (r.blackUid !== myUid) { r.blackUid = myUid; patch.blackUid = myUid; changed = true; }
+            if (myVault && r.blackVaultCode !== myVault) { r.blackVaultCode = myVault; patch.blackVaultCode = myVault; changed = true; }
+            if (canMatchByNick && r.blackName !== myNick) { r.blackName = myNick; patch.blackName = myNick; changed = true; }
           }
 
           const matchWhite =
             (myVault && r.whiteVaultCode === myVault) ||
             (r.whiteUid === myUid);
           if (matchWhite) {
-            if (r.whiteUid !== myUid) { r.whiteUid = myUid; changed = true; }
-            if (myVault && r.whiteVaultCode !== myVault) { r.whiteVaultCode = myVault; changed = true; }
-            if (canMatchByNick && r.whiteName !== myNick) { r.whiteName = myNick; changed = true; }
+            if (r.whiteUid !== myUid) { r.whiteUid = myUid; patch.whiteUid = myUid; changed = true; }
+            if (myVault && r.whiteVaultCode !== myVault) { r.whiteVaultCode = myVault; patch.whiteVaultCode = myVault; changed = true; }
+            if (canMatchByNick && r.whiteName !== myNick) { r.whiteName = myNick; patch.whiteName = myNick; changed = true; }
           }
 
           const matchPresenter =
             (myVault && r.studyControllerVaultCode === myVault) ||
             (r.studyControllerUid === myUid);
           if (matchPresenter) {
-            if (r.studyControllerUid !== myUid) { r.studyControllerUid = myUid; changed = true; }
-            if (myVault && r.studyControllerVaultCode !== myVault) { r.studyControllerVaultCode = myVault; changed = true; }
-            if (canMatchByNick && r.studyControllerName !== myNick) { r.studyControllerName = myNick; changed = true; }
+            if (r.studyControllerUid !== myUid) { r.studyControllerUid = myUid; patch.studyControllerUid = myUid; changed = true; }
+            if (myVault && r.studyControllerVaultCode !== myVault) { r.studyControllerVaultCode = myVault; patch.studyControllerVaultCode = myVault; changed = true; }
+            if (canMatchByNick && r.studyControllerName !== myNick) { r.studyControllerName = myNick; patch.studyControllerName = myNick; changed = true; }
           }
 
-          return changed;
+          return changed ? patch : null;
         };
 
         Object.values(appState.rooms || {}).forEach((r) => {
-          if (syncSingleRoomOwnership(r)) {
+          const patch = computeOwnershipPatch(r);
+          if (patch) {
             reclaimedCount++;
             if (useFirebase) {
-              cloudSetDoc('rooms', r.id, serializeRoomForFirestore(r), { merge: true }).catch(() => {});
+              cloudSetDoc('rooms', r.id, patch, { merge: true }).catch(() => {});
+              cloudSetDoc('room_summaries', r.id, patch, { merge: true }).catch(() => {});
             }
           }
         });
 
-        if (state && syncSingleRoomOwnership(state)) {
+        if (state && computeOwnershipPatch(state)) {
           reclaimedCount++;
           updateMyRoomPresence(state.id, true);
           persistCurrentRoomAndSync(false);
@@ -1891,33 +1894,35 @@
         if (changed && (oldUid !== finalUid || (hasExplicitPersistedNickname && oldName !== finalName))) {
           Object.values(appState.rooms || {}).forEach((r) => {
             if (!r) return;
+            const patch = {};
             let cloudRoomChanged = false;
             if (r.hostUid === oldUid || r.hostUid === finalUid || (myVault && r.hostVaultCode === myVault)) {
-              r.hostUid = finalUid;
-              if (myVault) r.hostVaultCode = myVault;
-              if (hasExplicitPersistedNickname) r.hostName = finalName;
+              r.hostUid = finalUid; patch.hostUid = finalUid;
+              if (myVault) { r.hostVaultCode = myVault; patch.hostVaultCode = myVault; }
+              if (hasExplicitPersistedNickname) { r.hostName = finalName; patch.hostName = finalName; }
               cloudRoomChanged = true;
             }
             if (r.blackUid === oldUid || r.blackUid === finalUid || (myVault && r.blackVaultCode === myVault)) {
-              r.blackUid = finalUid;
-              if (myVault) r.blackVaultCode = myVault;
-              if (hasExplicitPersistedNickname) r.blackName = finalName;
+              r.blackUid = finalUid; patch.blackUid = finalUid;
+              if (myVault) { r.blackVaultCode = myVault; patch.blackVaultCode = myVault; }
+              if (hasExplicitPersistedNickname) { r.blackName = finalName; patch.blackName = finalName; }
               cloudRoomChanged = true;
             }
             if (r.whiteUid === oldUid || r.whiteUid === finalUid || (myVault && r.whiteVaultCode === myVault)) {
-              r.whiteUid = finalUid;
-              if (myVault) r.whiteVaultCode = myVault;
-              if (hasExplicitPersistedNickname) r.whiteName = finalName;
+              r.whiteUid = finalUid; patch.whiteUid = finalUid;
+              if (myVault) { r.whiteVaultCode = myVault; patch.whiteVaultCode = myVault; }
+              if (hasExplicitPersistedNickname) { r.whiteName = finalName; patch.whiteName = finalName; }
               cloudRoomChanged = true;
             }
             if (r.studyControllerUid === oldUid || r.studyControllerUid === finalUid || (myVault && r.studyControllerVaultCode === myVault)) {
-              r.studyControllerUid = finalUid;
-              if (myVault) r.studyControllerVaultCode = myVault;
-              if (hasExplicitPersistedNickname) r.studyControllerName = finalName;
+              r.studyControllerUid = finalUid; patch.studyControllerUid = finalUid;
+              if (myVault) { r.studyControllerVaultCode = myVault; patch.studyControllerVaultCode = myVault; }
+              if (hasExplicitPersistedNickname) { r.studyControllerName = finalName; patch.studyControllerName = finalName; }
               cloudRoomChanged = true;
             }
             if (cloudRoomChanged && useFirebase) {
-              cloudSetDoc('rooms', r.id, serializeRoomForFirestore(r), { merge: true }).catch(() => {});
+              cloudSetDoc('rooms', r.id, patch, { merge: true }).catch(() => {});
+              cloudSetDoc('room_summaries', r.id, patch, { merge: true }).catch(() => {});
             }
           });
 
@@ -2461,11 +2466,14 @@
         };
       }
 
-      // ==================== 4. 狀態管理與 Firebase Realtime Database 即時同步 ====================
+      // ==================== 4. 狀態管理與 Firebase Realtime Database 條件式即時同步 ====================
       const appState = {
         lobbyTab: 'all',
         searchQuery: '',
         rooms: {},
+        recentRoomSummaries: {},
+        activeMatchSummaries: {},
+        searchRoomSummaries: {},
         roomsLoadedFromCloud: false,
         cloudProfiles: {},
         vaultProfiles: {},
@@ -2502,13 +2510,15 @@
       let isExternalFirebase = false;
       let initSyncPromise = null;
       let networkListenersBound = false;
-      let roomsCollectionUnsubscribe = null;
+      let recentRoomsUnsubscribe = null;
+      let activeMatchesUnsubscribe = null;
       let lobbyChatUnsubscribe = null;
       let roomUnsubscribe = null;
       let roomChatUnsubscribe = null;
       let myRoomJoinedAt = 0;
       let currentPresenceRef = null;
       let studyCursorSyncTimer = null;
+      let searchCloudDebounceTimer = null;
       const renderedRoomChatIds = new Set();
 
       function getActiveFirebaseConfig() {
@@ -2601,6 +2611,244 @@
         return () => query.off('value', handler);
       }
 
+      function buildRoomSummary(room) {
+        if (!room || !room.id) return null;
+        const isStudy = room.mode === 'study';
+        const activeBr = isStudy && room.studyBranches && room.activeBranchId
+          ? room.studyBranches[room.activeBranchId]
+          : null;
+        const moveCount = isStudy
+          ? ((activeBr && Array.isArray(activeBr.moves) ? activeBr.moves.length : 0) ||
+            (Array.isArray(room.moves) ? room.moves.length : 0) ||
+            Number(room.moveCount) ||
+            0)
+          : (Array.isArray(room.moves) ? room.moves.length : (Number(room.moveCount) || 0));
+
+        const isUnfinishedMatch = room.mode === 'match' && room.status !== 'finished' && !room.deleted;
+
+        return {
+          id: room.id,
+          code: room.code || '',
+          title: room.title || '圍棋房間',
+          mode: room.mode || 'match',
+          boardSize: room.boardSize || 19,
+          hostUid: room.hostUid || null,
+          hostVaultCode: room.hostVaultCode || null,
+          hostName: room.hostName || '',
+          createdAt: room.createdAt || Date.now(),
+          updatedAt: room.updatedAt || Date.now(),
+          lastActivityAt: room.lastActivityAt || room.createdAt || Date.now(),
+          activeMembers: room.activeMembers && typeof room.activeMembers === 'object' ? room.activeMembers : {},
+          status: room.status || 'waiting',
+          waitTimeoutSeconds: Number(room.waitTimeoutSeconds) || 0,
+          waitDeadlineAt: Number(room.waitDeadlineAt) || 0,
+          blackUid: room.blackUid || null,
+          blackVaultCode: room.blackVaultCode || null,
+          blackName: room.blackName || '',
+          whiteUid: room.whiteUid || null,
+          whiteVaultCode: room.whiteVaultCode || null,
+          whiteName: room.whiteName || '',
+          turn: room.turn || 'B',
+          moveCount,
+          mainTime: Number(room.mainTime) || 0,
+          byoyomiSeconds: Number(room.byoyomiSeconds) || 0,
+          byoyomiPeriods: Number(room.byoyomiPeriods) || 0,
+          clocks: room.clocks || null,
+          lastTickAt: room.lastTickAt || Date.now(),
+          result: room.result || null,
+          studyControllerUid: room.studyControllerUid || null,
+          studyControllerVaultCode: room.studyControllerVaultCode || null,
+          studyControllerName: room.studyControllerName || '',
+          lobbyKeepAlive: isUnfinishedMatch ? 1 : null,
+          deleted: !!room.deleted
+        };
+      }
+
+      function normalizeSummaryEntry(raw) {
+        if (!raw || typeof raw !== 'object' || !raw.id) return null;
+        return {
+          ...raw,
+          moveCount: Number(raw.moveCount) || (Array.isArray(raw.moves) ? raw.moves.length : 0),
+          activeMembers: raw.activeMembers && typeof raw.activeMembers === 'object' ? raw.activeMembers : {}
+        };
+      }
+
+      function rebuildMergedLobbyRooms() {
+        const now = Date.now();
+        const merged = {};
+        const hasSearch = !!appState.searchQuery.trim();
+        const sources = hasSearch
+          ? [appState.recentRoomSummaries, appState.activeMatchSummaries, appState.searchRoomSummaries]
+          : [appState.recentRoomSummaries, appState.activeMatchSummaries];
+
+        sources.forEach((bucket) => {
+          Object.values(bucket || {}).forEach((raw) => {
+            const item = normalizeSummaryEntry(raw);
+            if (!item || !item.id) return;
+            if (item.deleted || appState.deletedRoomIds.has(item.id)) return;
+            if (isRoomWaitExpired(item, now)) {
+              expireAndRemoveWaitingRoom(item);
+              return;
+            }
+            const existing = merged[item.id];
+            if (!existing || (item.updatedAt || 0) >= (existing.updatedAt || 0)) {
+              merged[item.id] = item;
+            }
+          });
+        });
+
+        appState.rooms = merged;
+
+        if (state && state.id && !merged[state.id] && appState.deletedRoomIds.has(state.id)) {
+          handleRemoteRoomDeleted();
+        }
+
+        const myVault = getMyVaultCode();
+        const myUid = getMyUid();
+        let needsOwnershipHeal = false;
+        if (myVault) {
+          Object.values(merged).forEach((data) => {
+            if (
+              (data.hostVaultCode === myVault && data.hostUid !== myUid) ||
+              (data.blackVaultCode === myVault && data.blackUid !== myUid) ||
+              (data.whiteVaultCode === myVault && data.whiteUid !== myUid) ||
+              (data.studyControllerVaultCode === myVault && data.studyControllerUid !== myUid)
+            ) {
+              needsOwnershipHeal = true;
+            }
+          });
+        }
+
+        recoverNicknameFromKnownData(myUid);
+        if (currentUser && currentUser.uid && currentUser.uid !== myUid) {
+          recoverNicknameFromKnownData(currentUser.uid);
+        }
+        if (needsOwnershipHeal) {
+          reclaimMatchingRolesAcrossRooms(myUid, getMyNickname(), myVault);
+        }
+
+        renderLobbyRooms();
+        tryAutoJoinPendingRoom();
+      }
+
+      async function backfillMissingRoomSummariesIfNeeded() {
+        if (!useFirebase || !rtdb) return;
+        try {
+          const checkSnap = await withTimeout(getCloudRef('room_summaries').limitToLast(1).once('value'), 6000, 'CONNECTION_TIMEOUT');
+          if (checkSnap.exists()) return;
+
+          const legacyDocs = await cloudListDocs('rooms', 200);
+          if (!legacyDocs.length) return;
+
+          const now = Date.now();
+          const updates = {};
+          legacyDocs.forEach((rawDoc) => {
+            const fullRoom = normalizeRoomFromRemote(rawDoc);
+            if (!fullRoom || !fullRoom.id || fullRoom.deleted) return;
+            if (isRoomWaitExpired(fullRoom, now)) return;
+            const summary = buildRoomSummary(fullRoom);
+            if (summary) {
+              updates[fullRoom.id] = sanitizeForRtdb(summary);
+              if ((summary.lastActivityAt || 0) >= now - DAY_24_MS) {
+                appState.recentRoomSummaries[fullRoom.id] = summary;
+              }
+              if (summary.lobbyKeepAlive === 1) {
+                appState.activeMatchSummaries[fullRoom.id] = summary;
+              }
+            }
+          });
+
+          if (Object.keys(updates).length > 0) {
+            await withTimeout(getCloudRef('room_summaries').update(updates), 8000, 'WRITE_TIMEOUT');
+            rebuildMergedLobbyRooms();
+          }
+        } catch (e) {}
+      }
+
+      function subscribeLobbyRoomSummaries() {
+        if (recentRoomsUnsubscribe) { recentRoomsUnsubscribe(); recentRoomsUnsubscribe = null; }
+        if (activeMatchesUnsubscribe) { activeMatchesUnsubscribe(); activeMatchesUnsubscribe = null; }
+        if (!useFirebase || !rtdb) return;
+
+        const cutoff24h = Date.now() - DAY_24_MS;
+
+        // 條件查詢 1：僅訂閱過去 24 小時內有活動的房間摘要（orderByChild('lastActivityAt').startAt(...)）
+        const recentQuery = getCloudRef('room_summaries').orderByChild('lastActivityAt').startAt(cutoff24h);
+        const recentHandler = (snap) => {
+          appState.roomsLoadedFromCloud = true;
+          updateFirebaseStatusUI('connected');
+          const val = snap.val();
+          const nextRecent = {};
+          if (val && typeof val === 'object') {
+            Object.values(val).forEach((item) => {
+              if (item && item.id && !item.deleted) nextRecent[item.id] = item;
+            });
+          }
+          appState.recentRoomSummaries = nextRecent;
+          rebuildMergedLobbyRooms();
+        };
+        const errHandler = (err) => {
+          updateFirebaseStatusUI('error', `讀取房間索引失敗：${formatFirebaseError(err)}`);
+        };
+        recentQuery.on('value', recentHandler, errHandler);
+        recentRoomsUnsubscribe = () => recentQuery.off('value', recentHandler);
+
+        // 條件查詢 2：僅訂閱尚未結束的雙人對弈室（等待入座或慢棋進行中，orderByChild('lobbyKeepAlive').equalTo(1)）
+        const activeMatchQuery = getCloudRef('room_summaries').orderByChild('lobbyKeepAlive').equalTo(1);
+        const activeMatchHandler = (snap) => {
+          appState.roomsLoadedFromCloud = true;
+          updateFirebaseStatusUI('connected');
+          const val = snap.val();
+          const nextActive = {};
+          if (val && typeof val === 'object') {
+            Object.values(val).forEach((item) => {
+              if (item && item.id && !item.deleted) nextActive[item.id] = item;
+            });
+          }
+          appState.activeMatchSummaries = nextActive;
+          rebuildMergedLobbyRooms();
+        };
+        activeMatchQuery.on('value', activeMatchHandler, errHandler);
+        activeMatchesUnsubscribe = () => activeMatchQuery.off('value', activeMatchHandler);
+      }
+
+      async function searchRoomSummariesInCloud(rawQuery) {
+        const trimmed = String(rawQuery || '').trim();
+        if (!trimmed) {
+          appState.searchRoomSummaries = {};
+          rebuildMergedLobbyRooms();
+          return;
+        }
+        if (!useFirebase || !rtdb) return;
+
+        const extractedKey = extractRoomKeyFromInput(trimmed);
+        try {
+          if (/^\d{6}$/.test(extractedKey)) {
+            const snap = await withTimeout(
+              getCloudRef('room_summaries').orderByChild('code').equalTo(extractedKey).once('value'),
+              6000,
+              'CONNECTION_TIMEOUT'
+            );
+            const val = snap.val();
+            const found = {};
+            if (val && typeof val === 'object') {
+              Object.values(val).forEach((item) => {
+                if (item && item.id && !item.deleted) found[item.id] = item;
+              });
+            }
+            appState.searchRoomSummaries = found;
+          } else {
+            const docs = await cloudListDocs('room_summaries', 200);
+            const found = {};
+            docs.forEach((item) => {
+              if (item && item.id && !item.deleted) found[item.id] = item;
+            });
+            appState.searchRoomSummaries = found;
+          }
+          rebuildMergedLobbyRooms();
+        } catch (e) {}
+      }
+
       function updateFirebaseStatusUI(status, detailMsg = '') {
         const badge = document.getElementById('firebase-status-badge');
         const errBanner = document.getElementById('firebase-error-banner');
@@ -2663,11 +2911,19 @@
         if (!useFirebase || !rtdb || !code) return;
 
         try {
-          const docs = await cloudListDocs('vault_records', 300);
+          // 條件式查詢：僅抓取屬於目前識別碼（vaultCode）的雲端棋譜
+          const snap = await withTimeout(
+            getCloudRef('vault_records').orderByChild('vaultCode').equalTo(code).once('value'),
+            7000,
+            'CONNECTION_TIMEOUT'
+          );
+          const val = snap.val();
           const cloudMap = {};
-          docs.forEach((d) => {
-            if (d && d.id && d.vaultCode === code) cloudMap[d.id] = d;
-          });
+          if (val && typeof val === 'object') {
+            Object.values(val).forEach((d) => {
+              if (d && d.id && d.vaultCode === code) cloudMap[d.id] = d;
+            });
+          }
           const merged = Object.values(cloudMap);
           merged.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
           appState.records = merged;
@@ -2853,7 +3109,8 @@
         updateVaultAndCloudStatusUI();
         recoverNicknameFromKnownData(getMyUid());
 
-        if (roomsCollectionUnsubscribe) { roomsCollectionUnsubscribe(); roomsCollectionUnsubscribe = null; }
+        if (recentRoomsUnsubscribe) { recentRoomsUnsubscribe(); recentRoomsUnsubscribe = null; }
+        if (activeMatchesUnsubscribe) { activeMatchesUnsubscribe(); activeMatchesUnsubscribe = null; }
         if (lobbyChatUnsubscribe) { lobbyChatUnsubscribe(); lobbyChatUnsubscribe = null; }
 
         if (typeof navigator !== 'undefined' && navigator.onLine === false) {
@@ -2937,7 +3194,7 @@
           }
 
           rtdb = firebase.database();
-          await withTimeout(getCloudRef('rooms').limitToLast(1).once('value'), 6500, 'CONNECTION_TIMEOUT');
+          await withTimeout(getCloudRef('room_summaries').limitToLast(1).once('value'), 6500, 'CONNECTION_TIMEOUT');
 
           useFirebase = true;
           updateFirebaseStatusUI('connected');
@@ -2954,71 +3211,10 @@
           if (currentUser) {
             await handleAuthenticatedUserReady(currentUser);
           }
-          const authUid = currentUser ? currentUser.uid : null;
 
-          roomsCollectionUnsubscribe = cloudSubscribeCollection(
-            'rooms',
-            (docs) => {
-              appState.roomsLoadedFromCloud = true;
-              updateFirebaseStatusUI('connected');
-              let needsOwnershipHeal = false;
-              const seenIds = new Set();
-              const now = Date.now();
-
-              docs.forEach((rawDoc) => {
-                const data = normalizeRoomFromRemote(rawDoc);
-                if (!data || !data.id) return;
-                if (data.deleted || appState.deletedRoomIds.has(data.id)) {
-                  delete appState.rooms[data.id];
-                  if (state && state.id === data.id) {
-                    handleRemoteRoomDeleted();
-                  }
-                  return;
-                }
-                if (isRoomWaitExpired(data, now)) {
-                  expireAndRemoveWaitingRoom(data);
-                  return;
-                }
-                seenIds.add(data.id);
-                appState.rooms[data.id] = data;
-                const myVault = getMyVaultCode();
-                const myUid = getMyUid();
-                if (
-                  myVault &&
-                  ((data.hostVaultCode === myVault && data.hostUid !== myUid) ||
-                    (data.blackVaultCode === myVault && data.blackUid !== myUid) ||
-                    (data.whiteVaultCode === myVault && data.whiteUid !== myUid) ||
-                    (data.studyControllerVaultCode === myVault && data.studyControllerUid !== myUid))
-                ) {
-                  needsOwnershipHeal = true;
-                }
-              });
-
-              Object.keys(appState.rooms).forEach((existingId) => {
-                if (!seenIds.has(existingId)) {
-                  delete appState.rooms[existingId];
-                  if (state && state.id === existingId) {
-                    handleRemoteRoomDeleted();
-                  }
-                }
-              });
-
-              recoverNicknameFromKnownData(getMyUid());
-              if (authUid && authUid !== getMyUid()) {
-                recoverNicknameFromKnownData(authUid);
-              }
-              if (needsOwnershipHeal) {
-                reclaimMatchingRolesAcrossRooms(getMyUid(), getMyNickname(), getMyVaultCode());
-              }
-              renderLobbyRooms();
-              tryAutoJoinPendingRoom();
-            },
-            (err) => {
-              updateFirebaseStatusUI('error', `讀取房間列表失敗：${formatFirebaseError(err)}`);
-            },
-            0,
-            200
-          );
+          // 使用條件式索引訂閱輕量化大廳摘要（僅抓 24h 內活動房間與未結束對弈室）
+          subscribeLobbyRoomSummaries();
+          backfillMissingRoomSummariesIfNeeded();
 
           if (appState.pendingAutoJoinRoom) {
             fetchAndJoinRemoteRoomByParam(appState.pendingAutoJoinRoom);
@@ -3054,24 +3250,44 @@
           return;
         }
         try {
-          const docs = await cloudListDocs('rooms', 200);
-          const freshRooms = {};
-          const now = Date.now();
-          docs.forEach((rawDoc) => {
-            const data = normalizeRoomFromRemote(rawDoc);
-            if (!data || !data.id || data.deleted || appState.deletedRoomIds.has(data.id)) return;
-            if (isRoomWaitExpired(data, now)) {
-              expireAndRemoveWaitingRoom(data);
-              return;
-            }
-            freshRooms[data.id] = data;
-          });
-          appState.rooms = freshRooms;
+          const cutoff24h = Date.now() - DAY_24_MS;
+          const [recentSnap, activeSnap] = await Promise.all([
+            withTimeout(
+              getCloudRef('room_summaries').orderByChild('lastActivityAt').startAt(cutoff24h).once('value'),
+              7000,
+              'CONNECTION_TIMEOUT'
+            ),
+            withTimeout(
+              getCloudRef('room_summaries').orderByChild('lobbyKeepAlive').equalTo(1).once('value'),
+              7000,
+              'CONNECTION_TIMEOUT'
+            )
+          ]);
+
+          const nextRecent = {};
+          const rVal = recentSnap.val();
+          if (rVal && typeof rVal === 'object') {
+            Object.values(rVal).forEach((item) => {
+              if (item && item.id && !item.deleted) nextRecent[item.id] = item;
+            });
+          }
+
+          const nextActive = {};
+          const aVal = activeSnap.val();
+          if (aVal && typeof aVal === 'object') {
+            Object.values(aVal).forEach((item) => {
+              if (item && item.id && !item.deleted) nextActive[item.id] = item;
+            });
+          }
+
+          appState.recentRoomSummaries = nextRecent;
+          appState.activeMatchSummaries = nextActive;
           appState.roomsLoadedFromCloud = true;
           updateFirebaseStatusUI('connected');
-          renderLobbyRooms();
+          rebuildMergedLobbyRooms();
+
           if (showFeedback) {
-            showToast(`✅ 已從 Firebase 同步最新房間（共 ${Object.keys(freshRooms).length} 間）`);
+            showToast(`✅ 已從 Firebase 條件同步最新房間（共 ${Object.keys(appState.rooms).length} 間）`);
           }
         } catch (err) {
           updateFirebaseStatusUI('error', `刷新房間失敗：${formatFirebaseError(err)}`);
@@ -3103,7 +3319,18 @@
           state.lastActivityAt = now;
         }
         const clean = serializeRoomForStorage(state);
-        appState.rooms[state.id] = clean;
+        const summary = buildRoomSummary(clean);
+        if (summary) {
+          appState.rooms[state.id] = summary;
+          if ((summary.lastActivityAt || 0) >= now - DAY_24_MS) {
+            appState.recentRoomSummaries[state.id] = summary;
+          }
+          if (summary.lobbyKeepAlive === 1) {
+            appState.activeMatchSummaries[state.id] = summary;
+          } else {
+            delete appState.activeMatchSummaries[state.id];
+          }
+        }
 
         if (!useFirebase) {
           showToast('⚠️ Firebase 尚未連線，資料無法同步至雲端', 3500);
@@ -3115,6 +3342,9 @@
           console.error('RTDB 寫入房間失敗:', err);
           showToast(`⚠️ 雲端同步失敗：${formatFirebaseError(err)}`, 4000);
         });
+        if (summary) {
+          cloudSetDoc('room_summaries', state.id, summary).catch(() => {});
+        }
       }
 
       function applyIncomingRoomSnapshot(rawIncoming) {
@@ -3347,35 +3577,48 @@
       async function fetchAndJoinRemoteRoomByParam(rawTarget) {
         const target = extractRoomKeyFromInput(rawTarget);
         if (!target) return false;
-        if (tryAutoJoinPendingRoom(target)) return true;
-        if (!useFirebase) return false;
+        if (await tryAutoJoinPendingRoom(target)) return true;
+        if (!useFirebase || !rtdb) return false;
 
         try {
+          // 1. 若輸入為完整房間 ID（如 room_xxx），直接單筆讀取
           const docData = await cloudGetDoc('rooms', target);
           if (docData) {
             const data = normalizeRoomFromRemote(docData);
-            if (data && data.id) {
-              appState.rooms[data.id] = data;
-              return tryAutoJoinPendingRoom(target);
+            if (data && data.id && !data.deleted) {
+              const summary = buildRoomSummary(data);
+              if (summary) appState.rooms[data.id] = summary;
+              appState.pendingAutoJoinRoom = '';
+              await enterRoom(data.id, data);
+              showToast(`已透過連結自動進入房間 #${data.code || ''}`);
+              return true;
             }
           }
-          const docs = await cloudListDocs('rooms', 200);
-          let matchedRoom = null;
-          docs.forEach((rawDoc) => {
-            const data = normalizeRoomFromRemote(rawDoc);
-            if (data && (data.id === target || String(data.code) === target)) {
-              matchedRoom = data;
+
+          // 2. 條件式查詢：依 6 碼房號（code）向 Firebase 精準查詢單一房間
+          const snap = await withTimeout(
+            getCloudRef('rooms').orderByChild('code').equalTo(target).limitToFirst(1).once('value'),
+            7000,
+            'CONNECTION_TIMEOUT'
+          );
+          const val = snap.val();
+          if (val && typeof val === 'object') {
+            const firstRaw = Object.values(val).find((item) => item && item.id && !item.deleted);
+            const matchedRoom = normalizeRoomFromRemote(firstRaw);
+            if (matchedRoom) {
+              const summary = buildRoomSummary(matchedRoom);
+              if (summary) appState.rooms[matchedRoom.id] = summary;
+              appState.pendingAutoJoinRoom = '';
+              await enterRoom(matchedRoom.id, matchedRoom);
+              showToast(`已透過連結自動進入房間 #${matchedRoom.code || ''}`);
+              return true;
             }
-          });
-          if (matchedRoom) {
-            appState.rooms[matchedRoom.id] = matchedRoom;
-            return tryAutoJoinPendingRoom(target);
           }
         } catch (e) {}
         return false;
       }
 
-      function tryAutoJoinPendingRoom(overrideTarget = '') {
+      async function tryAutoJoinPendingRoom(overrideTarget = '') {
         const target = extractRoomKeyFromInput(overrideTarget || appState.pendingAutoJoinRoom);
         if (!target) return false;
         if (state && (state.id === target || String(state.code) === target)) {
@@ -3388,7 +3631,7 @@
         );
         if (matched) {
           appState.pendingAutoJoinRoom = '';
-          enterRoom(matched.id);
+          await enterRoom(matched.id);
           showToast(`已透過連結自動進入房間 #${matched.code || ''}`);
           return true;
         }
@@ -3573,7 +3816,7 @@
 
         listEl.innerHTML = items.map(({ room: r, myColor, category, clockInfo }) => {
           const isCurrentRoom = state && state.id === r.id;
-          const moveCount = (r.moves || []).length;
+          const moveCount = Array.isArray(r.moves) ? r.moves.length : (Number(r.moveCount) || 0);
           const myColorText = myColor === 'B' ? '● 執黑' : '○ 執白';
           const oppName = myColor === 'B' ? (r.whiteName || '等待入座...') : (r.blackName || '等待入座...');
 
@@ -3682,9 +3925,7 @@
           const isHost = isRoomHost(r);
           const isStale = isRoomHiddenStale(r, now);
           const memberCount = getRoomOnlineCount(r);
-          const moveCount = isStudy
-            ? ((r.studyBranches && r.studyBranches[r.activeBranchId]?.moves?.length) || (r.moves || []).length)
-            : (r.moves || []).length;
+          const moveCount = Array.isArray(r.moves) ? r.moves.length : (Number(r.moveCount) || 0);
 
           const deadline = Number(r.waitDeadlineAt) || 0;
           const waitRemBadge = isWaitingMatch && deadline > now
@@ -3958,9 +4199,19 @@
           };
 
           const cloudDoc = serializeRoomForFirestore(newRoom);
-          await cloudSetDoc('rooms', roomId, cloudDoc);
+          const summary = buildRoomSummary(newRoom);
+          await Promise.all([
+            cloudSetDoc('rooms', roomId, cloudDoc),
+            summary ? cloudSetDoc('room_summaries', roomId, summary) : Promise.resolve()
+          ]);
 
-          appState.rooms[roomId] = serializeRoomForStorage(newRoom);
+          if (summary) {
+            appState.rooms[roomId] = summary;
+            appState.recentRoomSummaries[roomId] = summary;
+            if (summary.lobbyKeepAlive === 1) {
+              appState.activeMatchSummaries[roomId] = summary;
+            }
+          }
           state = newRoom;
           localVersionTs = now;
           appState.pendingMove = null;
@@ -3968,7 +4219,7 @@
           safeSetStorage(STORAGE_KEYS.VAULT_CODE, myVault, true);
           syncVaultProfileToCloud(myVault, myUid, myName);
           closeAllModals();
-          enterRoom(roomId);
+          await enterRoom(roomId, newRoom);
           showToast(isStudy ? '✅ 已在 Firebase 成功建立擺盤研究室！' : '✅ 已在 Firebase 成功建立對弈室！');
         } catch (err) {
           console.error('建立房間失敗:', err);
@@ -3982,18 +4233,46 @@
         }
       }
 
-      function enterRoom(roomId) {
-        const room = appState.rooms[roomId];
-        if (!room) {
+      async function enterRoom(roomId, preloadedFullRoom = null) {
+        let fullRoom = preloadedFullRoom;
+        if (!fullRoom) {
+          if (!useFirebase) {
+            await ensureFirebaseConnected();
+          }
+          try {
+            const rawDoc = await cloudGetDoc('rooms', roomId);
+            if (rawDoc) {
+              fullRoom = normalizeRoomFromRemote(rawDoc);
+            }
+          } catch (err) {
+            showToast(`讀取房間失敗：${formatFirebaseError(err)}`);
+            return;
+          }
+        }
+
+        if (!fullRoom || fullRoom.deleted) {
+          delete appState.rooms[roomId];
+          delete appState.recentRoomSummaries[roomId];
+          delete appState.activeMatchSummaries[roomId];
+          renderLobbyRooms();
           showToast('找不到該房間或房間已被刪除');
           return;
         }
-        if (isRoomWaitExpired(room, Date.now())) {
-          expireAndRemoveWaitingRoom(room);
+        if (isRoomWaitExpired(fullRoom, Date.now())) {
+          expireAndRemoveWaitingRoom(fullRoom);
           showToast('此對弈室已超過等待入席時限並自動刪除');
           return;
         }
-        state = normalizeRoomFromRemote(serializeRoomForStorage(room));
+
+        state = normalizeRoomFromRemote(serializeRoomForStorage(fullRoom));
+        const summary = buildRoomSummary(state);
+        if (summary) {
+          appState.rooms[roomId] = summary;
+          if (useFirebase && !appState.recentRoomSummaries[roomId] && !appState.activeMatchSummaries[roomId]) {
+            cloudSetDoc('room_summaries', roomId, summary).catch(() => {});
+          }
+        }
+
         localVersionTs = state.updatedAt || Date.now();
         appState.pendingMove = null;
         appState.pendingAutoJoinRoom = '';
@@ -4129,10 +4408,14 @@
 
         try {
           await cloudDeleteDoc('rooms', roomId);
+          cloudDeleteDoc('room_summaries', roomId).catch(() => {});
           cloudDeleteDoc('room_messages', roomId).catch(() => {});
 
           appState.deletedRoomIds.add(roomId);
           delete appState.rooms[roomId];
+          delete appState.recentRoomSummaries[roomId];
+          delete appState.activeMatchSummaries[roomId];
+          delete appState.searchRoomSummaries[roomId];
 
           if (state && state.id === roomId) {
             showToast('✅ 已從 Firebase 刪除房間');
@@ -4152,9 +4435,13 @@
         const roomId = room.id;
         appState.deletedRoomIds.add(roomId);
         delete appState.rooms[roomId];
+        delete appState.recentRoomSummaries[roomId];
+        delete appState.activeMatchSummaries[roomId];
+        delete appState.searchRoomSummaries[roomId];
 
         if (useFirebase && rtdb) {
           cloudDeleteDoc('rooms', roomId).catch(() => {});
+          cloudDeleteDoc('room_summaries', roomId).catch(() => {});
           cloudDeleteDoc('room_messages', roomId).catch(() => {});
         }
 
@@ -4253,6 +4540,8 @@
       }
 
       // ==================== 6.5 房內在線成員列表（RTDB onDisconnect 原生離線自動清除） ====================
+      let currentSummaryPresenceRef = null;
+
       function startRoomPresenceHeartbeat(roomId) {
         updateMyRoomPresence(roomId, true);
       }
@@ -4262,6 +4551,11 @@
           try { currentPresenceRef.onDisconnect().cancel(); } catch (e) {}
           try { currentPresenceRef.remove(); } catch (e) {}
           currentPresenceRef = null;
+        }
+        if (currentSummaryPresenceRef) {
+          try { currentSummaryPresenceRef.onDisconnect().cancel(); } catch (e) {}
+          try { currentSummaryPresenceRef.remove(); } catch (e) {}
+          currentSummaryPresenceRef = null;
         }
         if (!roomId) return;
         const myUid = getMyUid();
@@ -4273,6 +4567,7 @@
 
         if (useFirebase && rtdb && !appState.deletedRoomIds.has(roomId)) {
           getCloudRef(`rooms/${roomId}/activeMembers/${myUid}`).remove().catch(() => {});
+          getCloudRef(`room_summaries/${roomId}/activeMembers/${myUid}`).remove().catch(() => {});
         }
       }
 
@@ -4304,10 +4599,16 @@
         }
 
         if (syncCloud && useFirebase && rtdb && !appState.deletedRoomIds.has(roomId)) {
+          const cleanEntry = sanitizeForRtdb(entry);
           const memberRef = getCloudRef(`rooms/${roomId}/activeMembers/${myUid}`);
           currentPresenceRef = memberRef;
           memberRef.onDisconnect().remove().catch(() => {});
-          memberRef.set(sanitizeForRtdb(entry)).catch(() => {});
+          memberRef.set(cleanEntry).catch(() => {});
+
+          const summaryMemberRef = getCloudRef(`room_summaries/${roomId}/activeMembers/${myUid}`);
+          currentSummaryPresenceRef = summaryMemberRef;
+          summaryMemberRef.onDisconnect().remove().catch(() => {});
+          summaryMemberRef.set(cleanEntry).catch(() => {});
         }
       }
 
@@ -4713,6 +5014,10 @@
             }
             const updated = normalizeRoomFromRemote(res.snapshot.val());
             if (!updated) return;
+            const summary = buildRoomSummary(updated);
+            if (summary) {
+              cloudSetDoc('room_summaries', updated.id, summary).catch(() => {});
+            }
             appState.spectatorLocalMatch = null;
             syncVaultProfileToCloud(vault, uid, name);
             applyIncomingRoomSnapshot(updated);
@@ -6524,9 +6829,16 @@
         studyRoom.turn = snap.turn;
 
         try {
-          await cloudSetDoc('rooms', roomId, serializeRoomForFirestore(studyRoom));
-          appState.rooms[roomId] = serializeRoomForStorage(studyRoom);
-          enterRoom(roomId);
+          const summary = buildRoomSummary(studyRoom);
+          await Promise.all([
+            cloudSetDoc('rooms', roomId, serializeRoomForFirestore(studyRoom)),
+            summary ? cloudSetDoc('room_summaries', roomId, summary) : Promise.resolve()
+          ]);
+          if (summary) {
+            appState.rooms[roomId] = summary;
+            appState.recentRoomSummaries[roomId] = summary;
+          }
+          await enterRoom(roomId, studyRoom);
         } catch (err) {
           showToast(`❌ 建立覆盤房間失敗：${formatFirebaseError(err)}`, 4000);
         }
@@ -7558,7 +7870,7 @@
         document.getElementById('edit-nickname-btn-room')?.addEventListener('click', openNicknameSettingsModal);
         document.getElementById('my-matches-btn-lobby')?.addEventListener('click', openMyMatchesModal);
         document.getElementById('my-matches-btn-room')?.addEventListener('click', openMyMatchesModal);
-        document.getElementById('my-matches-list')?.addEventListener('click', (e) => {
+        document.getElementById('my-matches-list')?.addEventListener('click', async (e) => {
           const card = e.target.closest('[data-jump-match-room]');
           if (!card) return;
           const targetRoomId = card.dataset.jumpMatchRoom;
@@ -7570,7 +7882,7 @@
           if (state) {
             leaveRoom();
           }
-          enterRoom(targetRoomId);
+          await enterRoom(targetRoomId);
         });
         document.getElementById('modal-copy-vault-btn')?.addEventListener('click', () => {
           const code = getMyVaultCode();
@@ -7681,8 +7993,19 @@
           const extracted = extractRoomKeyFromInput(searchInp.value);
           const looksLikeRoomTarget = /^https?:\/\//i.test(searchInp.value.trim()) || /^#?\d{6}$/.test(searchInp.value.trim()) || /^room_/.test(extracted);
           quickEnterBtn?.classList.toggle('hidden', !looksLikeRoomTarget);
-          if (appState.lobbyTab === 'records') renderLobbyRecords();
-          else renderLobbyRooms();
+          if (appState.lobbyTab === 'records') {
+            renderLobbyRecords();
+          } else {
+            rebuildMergedLobbyRooms();
+            if (searchCloudDebounceTimer) clearTimeout(searchCloudDebounceTimer);
+            if (hasVal) {
+              searchCloudDebounceTimer = setTimeout(() => {
+                searchRoomSummariesInCloud(searchInp.value);
+              }, 300);
+            } else {
+              appState.searchRoomSummaries = {};
+            }
+          }
         });
         searchInp?.addEventListener('keydown', async (e) => {
           if (e.key === 'Enter') {
@@ -7703,13 +8026,15 @@
         clearSearchBtn?.addEventListener('click', () => {
           if (searchInp) searchInp.value = '';
           appState.searchQuery = '';
+          appState.searchRoomSummaries = {};
+          if (searchCloudDebounceTimer) clearTimeout(searchCloudDebounceTimer);
           clearSearchBtn.classList.add('hidden');
           quickEnterBtn?.classList.add('hidden');
           if (appState.lobbyTab === 'records') renderLobbyRecords();
-          else renderLobbyRooms();
+          else rebuildMergedLobbyRooms();
         });
 
-        document.getElementById('lobby-rooms-grid')?.addEventListener('click', (e) => {
+        document.getElementById('lobby-rooms-grid')?.addEventListener('click', async (e) => {
           const delBtn = e.target.closest('[data-delete-room-lobby]');
           if (delBtn) {
             e.stopPropagation();
@@ -7719,7 +8044,7 @@
           }
           const card = e.target.closest('[data-enter-room]');
           if (card) {
-            enterRoom(card.dataset.enterRoom);
+            await enterRoom(card.dataset.enterRoom);
           }
         });
 
@@ -8035,7 +8360,7 @@
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
 
-      // 啟動應用程式（透過 Firebase Realtime Database 即時同步）
+      // 啟動應用程式（透過 Firebase Realtime Database 條件索引即時同步）
       (async () => {
         await hydrateStorageBeforeBoot();
 
