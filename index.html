@@ -745,6 +745,7 @@
               <div id="modal-vault-winrate" class="font-mono font-black text-sm text-amber-800">0%</div>
             </div>
           </div>
+          <div id="modal-vault-last-login" class="text-[11px] text-amber-900/80 font-medium text-right">🕒 最後登入時間：連線同步中...</div>
           <p class="text-[11px] text-amber-900/90 leading-relaxed">
             可直接輸入您習慣的<strong>專屬代號（或 Gmail 信箱）</strong>與選填 PIN 碼並套用；重開網頁或更換手機、電腦時輸入同一組識別碼，即可自動找回原暱稱、<strong>所有建立的房間管理權</strong>與雲端棋譜庫：
           </p>
@@ -1236,7 +1237,7 @@
         return fresh;
       }
 
-      // ==================== 識別碼戰績（勝次數、敗次數）管理與雲端同步 ====================
+      // ==================== 識別碼戰績（勝次數、敗次數）與最後登入時間戳記 ====================
       let vaultProfileUnsubscribe = null;
 
       function getLocalVaultStatsMap() {
@@ -1249,13 +1250,15 @@
         }
       }
 
-      function saveLocalVaultStatsForCode(vaultCode, wins, losses) {
+      function saveLocalVaultStatsForCode(vaultCode, wins, losses, lastLoginAt = null) {
         const code = normalizeVaultCode(vaultCode);
         if (!code) return;
         const map = getLocalVaultStatsMap();
+        const prev = map[code] || {};
         map[code] = {
           wins: Math.max(0, Math.floor(Number(wins) || 0)),
           losses: Math.max(0, Math.floor(Number(losses) || 0)),
+          lastLoginAt: Number(lastLoginAt || prev.lastLoginAt || 0) || Date.now(),
           updatedAt: Date.now()
         };
         try {
@@ -1265,7 +1268,7 @@
 
       function getVaultStats(vaultCode) {
         const code = normalizeVaultCode(vaultCode || getMyVaultCode());
-        if (!code) return { wins: 0, losses: 0 };
+        if (!code) return { wins: 0, losses: 0, lastLoginAt: 0 };
         const cloudProf = appState.vaultProfiles && appState.vaultProfiles[code];
         const localProf = getLocalVaultStatsMap()[code];
         const wins = Math.max(
@@ -1276,7 +1279,11 @@
           0,
           Math.floor(Number(cloudProf?.losses ?? localProf?.losses ?? 0) || 0)
         );
-        return { wins, losses };
+        const lastLoginAt = Math.max(
+          0,
+          Number(cloudProf?.lastLoginAt ?? localProf?.lastLoginAt ?? 0) || 0
+        );
+        return { wins, losses, lastLoginAt };
       }
 
       function subscribeVaultProfileStats(vaultCode) {
@@ -1295,13 +1302,15 @@
             if (!d) return;
             const wins = Math.max(0, Math.floor(Number(d.wins) || 0));
             const losses = Math.max(0, Math.floor(Number(d.losses) || 0));
+            const lastLoginAt = Number(d.lastLoginAt || d.updatedAt || 0) || 0;
             appState.vaultProfiles[code] = {
               ...(appState.vaultProfiles[code] || {}),
               ...d,
               wins,
-              losses
+              losses,
+              lastLoginAt
             };
-            saveLocalVaultStatsForCode(code, wins, losses);
+            saveLocalVaultStatsForCode(code, wins, losses, lastLoginAt);
             updateVaultAndCloudStatusUI();
             if (state && state.mode === 'match') {
               updateMatchPanelUI();
@@ -1318,7 +1327,7 @@
         const curLocal = getVaultStats(code);
         const nextLocalWins = curLocal.wins + (isWin ? 1 : 0);
         const nextLocalLosses = curLocal.losses + (isWin ? 0 : 1);
-        saveLocalVaultStatsForCode(code, nextLocalWins, nextLocalLosses);
+        saveLocalVaultStatsForCode(code, nextLocalWins, nextLocalLosses, curLocal.lastLoginAt || Date.now());
         appState.vaultProfiles[code] = {
           ...(appState.vaultProfiles[code] || {}),
           vaultCode: code,
@@ -1373,17 +1382,26 @@
         if (!useFirebase || !vaultCode || !uid) return;
         const safeKey = encodeRtdbKey(vaultCode);
         const localStats = getVaultStats(vaultCode);
+        const now = Date.now();
         const payload = {
           vaultCode,
           uid,
           nickname: nickname || getMyNickname(),
           wins: localStats.wins,
           losses: localStats.losses,
-          updatedAt: Date.now()
+          lastLoginAt: now,
+          updatedAt: now
         };
         if (pinHash !== null) {
           payload.pinHash = pinHash;
         }
+        appState.vaultProfiles[vaultCode] = {
+          ...(appState.vaultProfiles[vaultCode] || {}),
+          ...payload
+        };
+        saveLocalVaultStatsForCode(vaultCode, payload.wins, payload.losses, now);
+        updateVaultAndCloudStatusUI();
+
         cloudGetDoc('vault_profiles', safeKey)
           .then((ex) => {
             if (ex) {
@@ -1563,6 +1581,12 @@
 
           reclaimMatchingRolesAcrossRooms(targetUid, targetNick, norm);
           syncVaultProfileToCloud(norm, targetUid, targetNick, cloudProf?.pinHash || enteredPinHash || '');
+          cloudSetDoc(
+            'user_profiles',
+            encodeRtdbKey(targetUid),
+            { uid: targetUid, nickname: targetNick, vaultCode: norm, lastLoginAt: Date.now(), updatedAt: Date.now() },
+            { merge: true }
+          ).catch(() => {});
 
           loadVaultRecordsForCode(norm);
           subscribeVaultProfileStats(norm);
@@ -1589,6 +1613,12 @@
           updateVaultAndCloudStatusUI();
 
           syncVaultProfileToCloud(norm, newUid, freshNick, enteredPinHash);
+          cloudSetDoc(
+            'user_profiles',
+            encodeRtdbKey(newUid),
+            { uid: newUid, nickname: freshNick, vaultCode: norm, lastLoginAt: Date.now(), updatedAt: Date.now() },
+            { merge: true }
+          ).catch(() => {});
           loadVaultRecordsForCode(norm);
           subscribeVaultProfileStats(norm);
           renderLobbyRooms();
@@ -1677,6 +1707,7 @@
         const modalWinsEl = document.getElementById('modal-vault-wins');
         const modalLossesEl = document.getElementById('modal-vault-losses');
         const modalWinrateEl = document.getElementById('modal-vault-winrate');
+        const modalLastLoginEl = document.getElementById('modal-vault-last-login');
 
         if (codeEl) codeEl.textContent = code;
         if (statsBadgeEl) statsBadgeEl.textContent = `🏆 ${stats.wins}勝 ${stats.losses}敗 (${winRate}%)`;
@@ -1685,6 +1716,15 @@
         if (modalWinsEl) modalWinsEl.textContent = String(stats.wins);
         if (modalLossesEl) modalLossesEl.textContent = String(stats.losses);
         if (modalWinrateEl) modalWinrateEl.textContent = `${winRate}%`;
+        if (modalLastLoginEl) {
+          if (stats.lastLoginAt > 0) {
+            const d = new Date(stats.lastLoginAt);
+            const tsStr = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+            modalLastLoginEl.textContent = `🕒 最後登入時間：${tsStr}`;
+          } else {
+            modalLastLoginEl.textContent = '🕒 最後登入時間：連線同步中...';
+          }
+        }
         if (modalVaultInp && document.activeElement !== modalVaultInp) {
           modalVaultInp.value = code;
         }
@@ -1757,7 +1797,8 @@
       function syncProfileNicknameToCloud(uid, nickname) {
         if (!useFirebase || !uid || !nickname) return;
         const vaultCode = getMyVaultCode();
-        const payload = { uid, nickname, vaultCode, updatedAt: Date.now() };
+        const now = Date.now();
+        const payload = { uid, nickname, vaultCode, lastLoginAt: now, updatedAt: now };
         cloudSetDoc('user_profiles', encodeRtdbKey(uid), payload, { merge: true }).catch(() => {});
         syncVaultProfileToCloud(vaultCode, uid, nickname);
       }
@@ -2843,6 +2884,14 @@
               useFirebase = false;
               updateFirebaseStatusUI('error', '網路已中斷，恢復連線後將自動重新連接 RTDB');
             });
+            document.addEventListener('visibilitychange', () => {
+              if (document.visibilityState === 'visible' && useFirebase) {
+                const stats = getVaultStats(getMyVaultCode());
+                if (!stats.lastLoginAt || Date.now() - stats.lastLoginAt > 30 * 60 * 1000) {
+                  syncProfileNicknameToCloud(getMyUid(), getMyNickname());
+                }
+              }
+            });
           }
 
           if (firebase.auth) {
@@ -2989,12 +3038,13 @@
           );
         }
 
-        loadVaultRecordsForCode(getMyVaultCode());
-        subscribeVaultProfileStats(getMyVaultCode());
-        if (needsCloudRegisterNewCharacter) {
-          needsCloudRegisterNewCharacter = false;
-          syncVaultProfileToCloud(getMyVaultCode(), getMyUid(), getMyNickname());
-        }
+        const activeVault = getMyVaultCode();
+        const activeUid = getMyUid();
+        const activeNick = getMyNickname();
+        loadVaultRecordsForCode(activeVault);
+        subscribeVaultProfileStats(activeVault);
+        needsCloudRegisterNewCharacter = false;
+        syncProfileNicknameToCloud(activeUid, activeNick);
       }
 
       async function fetchRoomsFromCloudOnce(showFeedback = false) {
