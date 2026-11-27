@@ -2731,35 +2731,73 @@
         tryAutoJoinPendingRoom();
       }
 
-      async function backfillMissingRoomSummariesIfNeeded() {
+      async function syncMissingOrStaleRoomSummaries() {
         if (!useFirebase || !rtdb) return;
         try {
-          const checkSnap = await withTimeout(getCloudRef('room_summaries').limitToLast(1).once('value'), 6000, 'CONNECTION_TIMEOUT');
-          if (checkSnap.exists()) return;
-
-          const legacyDocs = await cloudListDocs('rooms', 200);
-          if (!legacyDocs.length) return;
-
           const now = Date.now();
+          const cutoff24h = now - DAY_24_MS;
+
+          // 條件式向 rooms 查詢進行中、等待中與 24 小時內活躍的房間，補齊或校準 room_summaries 索引
+          const [playingSnap, waitingSnap, recentSnap] = await Promise.all([
+            withTimeout(getCloudRef('rooms').orderByChild('status').equalTo('playing').once('value'), 7000, 'CONNECTION_TIMEOUT'),
+            withTimeout(getCloudRef('rooms').orderByChild('status').equalTo('waiting').once('value'), 7000, 'CONNECTION_TIMEOUT'),
+            withTimeout(getCloudRef('rooms').orderByChild('lastActivityAt').startAt(cutoff24h).once('value'), 7000, 'CONNECTION_TIMEOUT')
+          ]);
+
+          const candidateMap = {};
+          [playingSnap.val(), waitingSnap.val(), recentSnap.val()].forEach((bucket) => {
+            if (!bucket || typeof bucket !== 'object') return;
+            Object.values(bucket).forEach((raw) => {
+              if (raw && raw.id && !raw.deleted && !appState.deletedRoomIds.has(raw.id)) {
+                candidateMap[raw.id] = raw;
+              }
+            });
+          });
+
           const updates = {};
-          legacyDocs.forEach((rawDoc) => {
+          let localChanged = false;
+
+          Object.values(candidateMap).forEach((rawDoc) => {
             const fullRoom = normalizeRoomFromRemote(rawDoc);
             if (!fullRoom || !fullRoom.id || fullRoom.deleted) return;
             if (isRoomWaitExpired(fullRoom, now)) return;
+
             const summary = buildRoomSummary(fullRoom);
-            if (summary) {
+            if (!summary) return;
+
+            const existing =
+              appState.activeMatchSummaries[fullRoom.id] ||
+              appState.recentRoomSummaries[fullRoom.id] ||
+              appState.rooms[fullRoom.id];
+
+            const isMissingOrStale =
+              !existing ||
+              (summary.updatedAt || 0) > (existing.updatedAt || 0) ||
+              summary.turn !== existing.turn ||
+              summary.status !== existing.status ||
+              (summary.moveCount || 0) !== (existing.moveCount || 0) ||
+              (summary.blackUid || null) !== (existing.blackUid || null) ||
+              (summary.whiteUid || null) !== (existing.whiteUid || null);
+
+            if (isMissingOrStale) {
               updates[fullRoom.id] = sanitizeForRtdb(summary);
-              if ((summary.lastActivityAt || 0) >= now - DAY_24_MS) {
+              if ((summary.lastActivityAt || 0) >= cutoff24h) {
                 appState.recentRoomSummaries[fullRoom.id] = summary;
               }
               if (summary.lobbyKeepAlive === 1) {
                 appState.activeMatchSummaries[fullRoom.id] = summary;
+              } else {
+                delete appState.activeMatchSummaries[fullRoom.id];
               }
+              localChanged = true;
             }
           });
 
           if (Object.keys(updates).length > 0) {
             await withTimeout(getCloudRef('room_summaries').update(updates), 8000, 'WRITE_TIMEOUT');
+          }
+          if (localChanged) {
+            appState.roomsLoadedFromCloud = true;
             rebuildMergedLobbyRooms();
           }
         } catch (e) {}
@@ -3214,7 +3252,7 @@
 
           // 使用條件式索引訂閱輕量化大廳摘要（僅抓 24h 內活動房間與未結束對弈室）
           subscribeLobbyRoomSummaries();
-          backfillMissingRoomSummariesIfNeeded();
+          syncMissingOrStaleRoomSummaries();
 
           if (appState.pendingAutoJoinRoom) {
             fetchAndJoinRemoteRoomByParam(appState.pendingAutoJoinRoom);
@@ -3284,6 +3322,7 @@
           appState.activeMatchSummaries = nextActive;
           appState.roomsLoadedFromCloud = true;
           updateFirebaseStatusUI('connected');
+          await syncMissingOrStaleRoomSummaries();
           rebuildMergedLobbyRooms();
 
           if (showFeedback) {
@@ -3352,6 +3391,9 @@
         if (!incoming || !state || incoming.id !== state.id) return;
         if (incoming.deleted || appState.deletedRoomIds.has(incoming.id)) {
           delete appState.rooms[incoming.id];
+          delete appState.recentRoomSummaries[incoming.id];
+          delete appState.activeMatchSummaries[incoming.id];
+          delete appState.searchRoomSummaries[incoming.id];
           handleRemoteRoomDeleted();
           return;
         }
@@ -3364,6 +3406,30 @@
         const prevMovesLen = (state.moves || []).length;
         state = incoming;
         let shouldPlayIncomingStone = true;
+
+        const incomingSummary = buildRoomSummary(state);
+        if (incomingSummary) {
+          const prevSummary = appState.rooms[state.id];
+          appState.rooms[state.id] = incomingSummary;
+          if ((incomingSummary.lastActivityAt || 0) >= Date.now() - DAY_24_MS) {
+            appState.recentRoomSummaries[state.id] = incomingSummary;
+          }
+          if (incomingSummary.lobbyKeepAlive === 1) {
+            appState.activeMatchSummaries[state.id] = incomingSummary;
+          } else {
+            delete appState.activeMatchSummaries[state.id];
+          }
+          if (
+            useFirebase &&
+            rtdb &&
+            (!prevSummary ||
+              prevSummary.turn !== incomingSummary.turn ||
+              prevSummary.status !== incomingSummary.status ||
+              (prevSummary.moveCount || 0) !== (incomingSummary.moveCount || 0))
+          ) {
+            cloudSetDoc('room_summaries', state.id, incomingSummary).catch(() => {});
+          }
+        }
 
         if (state.mode === 'study') {
           ensureStudyBranchesInitialized(false);
@@ -3581,46 +3647,69 @@
         if (!useFirebase || !rtdb) return false;
 
         try {
-          // 1. 若輸入為完整房間 ID（如 room_xxx），直接單筆讀取
+          // 1. 若為 room_xxx 完整 ID，直接讀取單一節點
           const docData = await cloudGetDoc('rooms', target);
-          if (docData) {
-            const data = normalizeRoomFromRemote(docData);
-            if (data && data.id && !data.deleted) {
-              const summary = buildRoomSummary(data);
-              if (summary) appState.rooms[data.id] = summary;
+          if (docData && !docData.deleted) {
+            const fullRoom = normalizeRoomFromRemote(docData);
+            if (fullRoom && fullRoom.id) {
+              const summary = buildRoomSummary(fullRoom);
+              if (summary) appState.rooms[fullRoom.id] = summary;
               appState.pendingAutoJoinRoom = '';
-              await enterRoom(data.id, data);
-              showToast(`已透過連結自動進入房間 #${data.code || ''}`);
+              await enterRoom(fullRoom.id, fullRoom);
+              showToast(`已透過連結自動進入房間 #${fullRoom.code || ''}`);
               return true;
             }
           }
 
-          // 2. 條件式查詢：依 6 碼房號（code）向 Firebase 精準查詢單一房間
-          const snap = await withTimeout(
-            getCloudRef('rooms').orderByChild('code').equalTo(target).limitToFirst(1).once('value'),
-            7000,
+          // 2. 條件式查詢房號 code（先查輕量化索引 room_summaries，若無則查 rooms）
+          const sumSnap = await withTimeout(
+            getCloudRef('room_summaries').orderByChild('code').equalTo(target).once('value'),
+            6500,
             'CONNECTION_TIMEOUT'
           );
-          const val = snap.val();
-          if (val && typeof val === 'object') {
-            const firstRaw = Object.values(val).find((item) => item && item.id && !item.deleted);
-            const matchedRoom = normalizeRoomFromRemote(firstRaw);
-            if (matchedRoom) {
-              const summary = buildRoomSummary(matchedRoom);
-              if (summary) appState.rooms[matchedRoom.id] = summary;
-              appState.pendingAutoJoinRoom = '';
-              await enterRoom(matchedRoom.id, matchedRoom);
-              showToast(`已透過連結自動進入房間 #${matchedRoom.code || ''}`);
-              return true;
+          const sumVal = sumSnap.val();
+          let matchedSummary = null;
+          if (sumVal && typeof sumVal === 'object') {
+            matchedSummary = Object.values(sumVal).find((r) => r && r.id && !r.deleted) || null;
+          }
+          if (matchedSummary) {
+            appState.rooms[matchedSummary.id] = normalizeSummaryEntry(matchedSummary);
+            appState.pendingAutoJoinRoom = '';
+            await enterRoom(matchedSummary.id);
+            showToast(`已透過連結自動進入房間 #${matchedSummary.code || ''}`);
+            return true;
+          }
+
+          const roomSnap = await withTimeout(
+            getCloudRef('rooms').orderByChild('code').equalTo(target).once('value'),
+            6500,
+            'CONNECTION_TIMEOUT'
+          );
+          const roomVal = roomSnap.val();
+          let matchedRoom = null;
+          if (roomVal && typeof roomVal === 'object') {
+            const raw = Object.values(roomVal).find((r) => r && r.id && !r.deleted) || null;
+            if (raw) matchedRoom = normalizeRoomFromRemote(raw);
+          }
+          if (matchedRoom) {
+            const summary = buildRoomSummary(matchedRoom);
+            if (summary) {
+              appState.rooms[matchedRoom.id] = summary;
+              cloudSetDoc('room_summaries', matchedRoom.id, summary).catch(() => {});
             }
+            appState.pendingAutoJoinRoom = '';
+            await enterRoom(matchedRoom.id, matchedRoom);
+            showToast(`已透過連結自動進入房間 #${matchedRoom.code || ''}`);
+            return true;
           }
         } catch (e) {}
         return false;
       }
 
+      let isAutoJoiningRoom = false;
       async function tryAutoJoinPendingRoom(overrideTarget = '') {
         const target = extractRoomKeyFromInput(overrideTarget || appState.pendingAutoJoinRoom);
-        if (!target) return false;
+        if (!target || isAutoJoiningRoom) return false;
         if (state && (state.id === target || String(state.code) === target)) {
           appState.pendingAutoJoinRoom = '';
           return true;
@@ -3630,9 +3719,14 @@
           (r) => r && (r.id === target || String(r.code) === target)
         );
         if (matched) {
+          isAutoJoiningRoom = true;
           appState.pendingAutoJoinRoom = '';
-          await enterRoom(matched.id);
-          showToast(`已透過連結自動進入房間 #${matched.code || ''}`);
+          try {
+            await enterRoom(matched.id);
+            showToast(`已透過連結自動進入房間 #${matched.code || ''}`);
+          } finally {
+            isAutoJoiningRoom = false;
+          }
           return true;
         }
         return false;
@@ -3925,7 +4019,9 @@
           const isHost = isRoomHost(r);
           const isStale = isRoomHiddenStale(r, now);
           const memberCount = getRoomOnlineCount(r);
-          const moveCount = Array.isArray(r.moves) ? r.moves.length : (Number(r.moveCount) || 0);
+          const moveCount = isStudy
+            ? ((r.studyBranches && r.studyBranches[r.activeBranchId]?.moves?.length) || (Array.isArray(r.moves) ? r.moves.length : 0) || Number(r.moveCount) || 0)
+            : (Array.isArray(r.moves) ? r.moves.length : (Number(r.moveCount) || 0));
 
           const deadline = Number(r.waitDeadlineAt) || 0;
           const waitRemBadge = isWaitingMatch && deadline > now
@@ -4234,27 +4330,45 @@
       }
 
       async function enterRoom(roomId, preloadedFullRoom = null) {
-        let fullRoom = preloadedFullRoom;
+        if (!roomId) return;
+        let fullRoom = preloadedFullRoom ? normalizeRoomFromRemote(serializeRoomForStorage(preloadedFullRoom)) : null;
+
+        if (!fullRoom) {
+          const cached = appState.rooms[roomId];
+          if (cached && (Array.isArray(cached.board) || typeof cached.boardFlat === 'string')) {
+            fullRoom = normalizeRoomFromRemote(serializeRoomForStorage(cached));
+          }
+        }
+
         if (!fullRoom) {
           if (!useFirebase) {
-            await ensureFirebaseConnected();
+            const connected = await ensureFirebaseConnected();
+            if (!connected) {
+              showToast('⚠️ Firebase 尚未連線，無法載入房間資料');
+              return;
+            }
           }
           try {
-            const rawDoc = await cloudGetDoc('rooms', roomId);
-            if (rawDoc) {
-              fullRoom = normalizeRoomFromRemote(rawDoc);
+            const remoteDoc = await cloudGetDoc('rooms', roomId);
+            if (!remoteDoc || remoteDoc.deleted) {
+              appState.deletedRoomIds.add(roomId);
+              delete appState.rooms[roomId];
+              delete appState.recentRoomSummaries[roomId];
+              delete appState.activeMatchSummaries[roomId];
+              delete appState.searchRoomSummaries[roomId];
+              cloudDeleteDoc('room_summaries', roomId).catch(() => {});
+              renderLobbyRooms();
+              showToast('找不到該房間或房間已被刪除');
+              return;
             }
+            fullRoom = normalizeRoomFromRemote(remoteDoc);
           } catch (err) {
-            showToast(`讀取房間失敗：${formatFirebaseError(err)}`);
+            showToast(`載入房間資料失敗：${formatFirebaseError(err)}`);
             return;
           }
         }
 
-        if (!fullRoom || fullRoom.deleted) {
-          delete appState.rooms[roomId];
-          delete appState.recentRoomSummaries[roomId];
-          delete appState.activeMatchSummaries[roomId];
-          renderLobbyRooms();
+        if (!fullRoom) {
           showToast('找不到該房間或房間已被刪除');
           return;
         }
@@ -4264,15 +4378,7 @@
           return;
         }
 
-        state = normalizeRoomFromRemote(serializeRoomForStorage(fullRoom));
-        const summary = buildRoomSummary(state);
-        if (summary) {
-          appState.rooms[roomId] = summary;
-          if (useFirebase && !appState.recentRoomSummaries[roomId] && !appState.activeMatchSummaries[roomId]) {
-            cloudSetDoc('room_summaries', roomId, summary).catch(() => {});
-          }
-        }
-
+        state = fullRoom;
         localVersionTs = state.updatedAt || Date.now();
         appState.pendingMove = null;
         appState.pendingAutoJoinRoom = '';
