@@ -1,152 +1,156 @@
 name: Cleanup Inactive Match Rooms and Expired Vaults
 
 on:
-  schedule:
-    - cron: '0 19 * * *'
-  workflow_dispatch:
+schedule:
+\- cron: '0 19 \* \* \*'
+workflow_dispatch:
 
 permissions:
-  contents: read
+contents: read
 
 jobs:
-  cleanup:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+cleanup:
+runs-on: ubuntu-latest
+steps:
+\- name: Setup Node.js
+uses: actions/setup-node@v4
+with:
+node-version: '20'
 
-      - name: Cleanup finished match rooms (>15d) and inactive vault profiles/records (>2y, preserving study rooms)
-        run: |
-          node << 'EOF'
-          const DB_BASE_URL = 'https://my-go-a276e-default-rtdb.firebaseio.com/weiqi';
-          const FIFTEEN_DAYS_MS = 15 * 24 * 60 * 60 * 1000;
-          const TWO_YEARS_MS = 2 * 365 * 24 * 60 * 60 * 1000;
-          const now = Date.now();
+```
+  - name: Cleanup finished match rooms (>15d) and inactive vault profiles/records (>2y, preserving study rooms)
+    run: |
+      node << 'EOF'
+      const DB_BASE_URL = 'https://my-go-a276e-default-rtdb.firebaseio.com/weiqi';
+      const FIFTEEN_DAYS_MS = 15 * 24 * 60 * 60 * 1000;
+      const TWO_YEARS_MS = 2 * 365 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
 
-          function normalizeVaultCode(raw) {
-            const trimmed = String(raw || '').trim();
-            if (!trimmed) return '';
-            const cleaned = trimmed
-              .replace(/[\\/\s]+/g, '-')
-              .replace(/[^a-zA-Z0-9\u4e00-\u9fa5_@.-]/g, '')
-              .slice(0, 36);
-            if (cleaned.length < 2) return '';
-            return /^[a-zA-Z0-9_@.-]+$/.test(cleaned) ? cleaned.toUpperCase() : cleaned;
+      function normalizeVaultCode(raw) {
+        const trimmed = String(raw || '').trim();
+        if (!trimmed) return '';
+        const cleaned = trimmed
+          .replace(/[\\/\s]+/g, '-')
+          .replace(/[^a-zA-Z0-9\u4e00-\u9fa5_@.-]/g, '')
+          .slice(0, 36);
+        if (cleaned.length < 2) return '';
+        return /^[a-zA-Z0-9_@.-]+$/.test(cleaned) ? cleaned.toUpperCase() : cleaned;
+      }
+
+      async function fetchJson(path) {
+        const res = await fetch(`${DB_BASE_URL}/${path}.json`);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status} ${res.statusText} (${path})`);
+        }
+        return res.json();
+      }
+
+      async function deletePath(path) {
+        const res = await fetch(`${DB_BASE_URL}/${path}.json`, { method: 'DELETE' });
+        if (!res.ok) {
+          throw new Error(`Failed DELETE ${path}: HTTP ${res.status} ${res.statusText}`);
+        }
+      }
+
+      // 1. 刪除超過 15 天沒有活動且已結束的雙人對弈室（擺盤研究室一律保留）
+      async function cleanupRooms() {
+        const rooms = await fetchJson('rooms');
+        if (!rooms || typeof rooms !== 'object') {
+          return;
+        }
+
+        for (const [id, room] of Object.entries(rooms)) {
+          if (!room || typeof room !== 'object') continue;
+          // 擺盤研究室（study）永久保留，不因閒置或建立者識別碼過期而刪除
+          if (room.mode === 'study') continue;
+          if (room.mode !== 'match') continue;
+          if (room.status !== 'finished') continue;
+
+          const lastAct = Number(room.lastActivityAt || room.updatedAt || room.createdAt || 0);
+          if (lastAct > 0 && now - lastAct > FIFTEEN_DAYS_MS) {
+            await deletePath(`rooms/${encodeURIComponent(id)}`);
+            await deletePath(`room_summaries/${encodeURIComponent(id)}`);
+            await deletePath(`room_messages/${encodeURIComponent(id)}`);
+            console.log(`Deleted inactive finished match room: ${id}`);
           }
+        }
+      }
 
-          async function fetchJson(path) {
-            const res = await fetch(`${DB_BASE_URL}/${path}.json`);
-            if (!res.ok) {
-              throw new Error(`HTTP ${res.status} ${res.statusText} (${path})`);
+      // 2. 刪除超過 2 年沒登入的識別碼及其擁有的雲端棋譜（擺盤研究室保留）
+      async function cleanupInactiveVaults() {
+        const expiredVaultCodes = new Set();
+        const expiredUids = new Set();
+
+        const vaultProfiles = await fetchJson('vault_profiles');
+        if (vaultProfiles && typeof vaultProfiles === 'object') {
+          for (const [key, profile] of Object.entries(vaultProfiles)) {
+            if (!profile || typeof profile !== 'object') continue;
+            const lastLogin = Number(profile.lastLoginAt || profile.updatedAt || profile.createdAt || 0);
+            if (lastLogin > 0 && now - lastLogin > TWO_YEARS_MS) {
+              const rawCode = String(profile.vaultCode || key);
+              const normCode = normalizeVaultCode(rawCode);
+              if (rawCode) expiredVaultCodes.add(rawCode);
+              if (normCode) expiredVaultCodes.add(normCode);
+              if (profile.uid) expiredUids.add(String(profile.uid));
+
+              await deletePath(`vault_profiles/${encodeURIComponent(key)}`);
+              console.log(`Deleted vault_profile (>2y inactive): ${rawCode}`);
             }
-            return res.json();
           }
+        }
 
-          async function deletePath(path) {
-            const res = await fetch(`${DB_BASE_URL}/${path}.json`, { method: 'DELETE' });
-            if (!res.ok) {
-              throw new Error(`Failed DELETE ${path}: HTTP ${res.status} ${res.statusText}`);
+        const userProfiles = await fetchJson('user_profiles');
+        if (userProfiles && typeof userProfiles === 'object') {
+          for (const [key, uProf] of Object.entries(userProfiles)) {
+            if (!uProf || typeof uProf !== 'object') continue;
+            const uLastLogin = Number(uProf.lastLoginAt || uProf.updatedAt || uProf.createdAt || 0);
+            const rawVault = String(uProf.vaultCode || '');
+            const normVault = normalizeVaultCode(rawVault);
+            const isVaultExpired =
+              (rawVault && expiredVaultCodes.has(rawVault)) ||
+              (normVault && expiredVaultCodes.has(normVault));
+            const isUidExpired =
+              (uProf.uid && expiredUids.has(String(uProf.uid))) ||
+              expiredUids.has(key);
+            const isUserInactive = uLastLogin > 0 && now - uLastLogin > TWO_YEARS_MS;
+
+            if (isVaultExpired || isUidExpired || isUserInactive) {
+              if (rawVault) expiredVaultCodes.add(rawVault);
+              if (normVault) expiredVaultCodes.add(normVault);
+              await deletePath(`user_profiles/${encodeURIComponent(key)}`);
+              console.log(`Deleted user_profile (>2y inactive): ${key}`);
             }
           }
+        }
 
-          // 1. 刪除超過 15 天沒有活動且已結束的雙人對弈室（擺盤研究室一律保留）
-          async function cleanupRooms() {
-            const rooms = await fetchJson('rooms');
-            if (!rooms || typeof rooms !== 'object') {
-              return;
-            }
-
-            for (const [id, room] of Object.entries(rooms)) {
-              if (!room || typeof room !== 'object') continue;
-              // 擺盤研究室（study）永久保留，不因閒置或建立者識別碼過期而刪除
-              if (room.mode === 'study') continue;
-              if (room.mode !== 'match') continue;
-              if (room.status !== 'finished') continue;
-
-              const lastAct = Number(room.lastActivityAt || room.updatedAt || room.createdAt || 0);
-              if (lastAct > 0 && now - lastAct > FIFTEEN_DAYS_MS) {
-                await deletePath(`rooms/${encodeURIComponent(id)}`);
-                await deletePath(`room_messages/${encodeURIComponent(id)}`);
-                console.log(`Deleted inactive finished match room: ${id}`);
+        if (expiredVaultCodes.size > 0) {
+          const records = await fetchJson('vault_records');
+          if (records && typeof records === 'object') {
+            for (const [recId, rec] of Object.entries(records)) {
+              if (!rec || typeof rec !== 'object') continue;
+              const recVaultRaw = String(rec.vaultCode || '');
+              const recVaultNorm = normalizeVaultCode(recVaultRaw);
+              if (
+                (recVaultRaw && expiredVaultCodes.has(recVaultRaw)) ||
+                (recVaultNorm && expiredVaultCodes.has(recVaultNorm))
+              ) {
+                await deletePath(`vault_records/${encodeURIComponent(recId)}`);
+                console.log(`Deleted vault_record (${recId}) for expired vaultCode: ${recVaultRaw}`);
               }
             }
           }
+        }
+      }
 
-          // 2. 刪除超過 2 年沒登入的識別碼及其擁有的雲端棋譜（擺盤研究室保留）
-          async function cleanupInactiveVaults() {
-            const expiredVaultCodes = new Set();
-            const expiredUids = new Set();
+      async function main() {
+        await cleanupRooms();
+        await cleanupInactiveVaults();
+      }
 
-            const vaultProfiles = await fetchJson('vault_profiles');
-            if (vaultProfiles && typeof vaultProfiles === 'object') {
-              for (const [key, profile] of Object.entries(vaultProfiles)) {
-                if (!profile || typeof profile !== 'object') continue;
-                const lastLogin = Number(profile.lastLoginAt || profile.updatedAt || profile.createdAt || 0);
-                if (lastLogin > 0 && now - lastLogin > TWO_YEARS_MS) {
-                  const rawCode = String(profile.vaultCode || key);
-                  const normCode = normalizeVaultCode(rawCode);
-                  if (rawCode) expiredVaultCodes.add(rawCode);
-                  if (normCode) expiredVaultCodes.add(normCode);
-                  if (profile.uid) expiredUids.add(String(profile.uid));
+      main().catch((err) => {
+        console.error(err);
+        process.exit(1);
+      });
+      EOF
 
-                  await deletePath(`vault_profiles/${encodeURIComponent(key)}`);
-                  console.log(`Deleted vault_profile (>2y inactive): ${rawCode}`);
-                }
-              }
-            }
-
-            const userProfiles = await fetchJson('user_profiles');
-            if (userProfiles && typeof userProfiles === 'object') {
-              for (const [key, uProf] of Object.entries(userProfiles)) {
-                if (!uProf || typeof uProf !== 'object') continue;
-                const uLastLogin = Number(uProf.lastLoginAt || uProf.updatedAt || uProf.createdAt || 0);
-                const rawVault = String(uProf.vaultCode || '');
-                const normVault = normalizeVaultCode(rawVault);
-                const isVaultExpired =
-                  (rawVault && expiredVaultCodes.has(rawVault)) ||
-                  (normVault && expiredVaultCodes.has(normVault));
-                const isUidExpired =
-                  (uProf.uid && expiredUids.has(String(uProf.uid))) ||
-                  expiredUids.has(key);
-                const isUserInactive = uLastLogin > 0 && now - uLastLogin > TWO_YEARS_MS;
-
-                if (isVaultExpired || isUidExpired || isUserInactive) {
-                  if (rawVault) expiredVaultCodes.add(rawVault);
-                  if (normVault) expiredVaultCodes.add(normVault);
-                  await deletePath(`user_profiles/${encodeURIComponent(key)}`);
-                  console.log(`Deleted user_profile (>2y inactive): ${key}`);
-                }
-              }
-            }
-
-            if (expiredVaultCodes.size > 0) {
-              const records = await fetchJson('vault_records');
-              if (records && typeof records === 'object') {
-                for (const [recId, rec] of Object.entries(records)) {
-                  if (!rec || typeof rec !== 'object') continue;
-                  const recVaultRaw = String(rec.vaultCode || '');
-                  const recVaultNorm = normalizeVaultCode(recVaultRaw);
-                  if (
-                    (recVaultRaw && expiredVaultCodes.has(recVaultRaw)) ||
-                    (recVaultNorm && expiredVaultCodes.has(recVaultNorm))
-                  ) {
-                    await deletePath(`vault_records/${encodeURIComponent(recId)}`);
-                    console.log(`Deleted vault_record (${recId}) for expired vaultCode: ${recVaultRaw}`);
-                  }
-                }
-              }
-            }
-          }
-
-          async function main() {
-            await cleanupRooms();
-            await cleanupInactiveVaults();
-          }
-
-          main().catch((err) => {
-            console.error(err);
-            process.exit(1);
-          });
-          EOF
+```
