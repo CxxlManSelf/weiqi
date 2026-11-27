@@ -287,11 +287,15 @@
 
         <!-- 【雙人對弈室】棋盤正下方獨立操作列 -->
         <div id="match-primary-action-bar" class="w-full max-w-[700px] mx-auto mt-2 space-y-2">
-          <!-- 狀態 1：虛手 (Pass) -->
-          <div id="match-pass-bar" class="flex items-center gap-2">
-            <button id="board-pass-btn" type="button" class="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-stone-100 active:bg-stone-200 border border-stone-300 text-stone-800 font-bold text-xs sm:text-sm shadow-xs transition flex items-center justify-center gap-1.5">
+          <!-- 狀態 1：虛手 (Pass) 與對弈者本地變化圖入口 -->
+          <div id="match-pass-bar" class="grid grid-cols-2 gap-2">
+            <button id="board-pass-btn" type="button" class="py-2.5 px-3 rounded-xl bg-white hover:bg-stone-100 active:bg-stone-200 border border-stone-300 text-stone-800 font-bold text-xs sm:text-sm shadow-xs transition flex items-center justify-center gap-1.5">
               <span>✋</span>
               <span>虛手 (Pass)</span>
+            </button>
+            <button id="player-open-local-var-btn" type="button" class="py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 border border-emerald-300 text-emerald-900 font-bold text-xs sm:text-sm shadow-xs transition flex items-center justify-center gap-1.5">
+              <span>🌿</span>
+              <span>本地變化圖</span>
             </button>
           </div>
 
@@ -307,14 +311,17 @@
             </button>
           </div>
 
-          <!-- 狀態 3：觀眾專屬變化圖與手數導覽控制列 -->
+          <!-- 狀態 3：對弈者與觀眾共用之本地變化圖與手數導覽控制列 -->
           <div id="match-spectator-controls" class="hidden bg-white rounded-2xl border border-stone-200 p-2.5 shadow-xs space-y-2">
             <div class="flex items-center justify-between gap-1.5 px-0.5">
               <div class="flex items-center gap-1.5 min-w-0 flex-1">
                 <span id="match-spec-mode-badge" class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold shrink-0 whitespace-nowrap">🟢 同步實況</span>
                 <span id="match-spec-branch-label" class="text-xs font-bold text-stone-700 truncate">實況主線</span>
               </div>
-              <button id="match-spec-move-num-btn" type="button" class="px-2.5 py-1 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 text-[11px] font-bold whitespace-nowrap shrink-0 transition">🔢 手數：隱藏</button>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span id="match-player-turn-alert-badge" class="hidden px-2 py-0.5 rounded-full bg-rose-600 text-white text-[11px] font-black animate-pulse whitespace-nowrap">🔔 輪到您落子</span>
+                <button id="match-spec-move-num-btn" type="button" class="px-2.5 py-1 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 text-[11px] font-bold whitespace-nowrap shrink-0 transition">🔢 手數：隱藏</button>
+              </div>
             </div>
 
             <div class="flex items-center gap-1 sm:gap-1.5">
@@ -328,13 +335,13 @@
 
             <div id="match-spec-branches-row" class="hidden flex items-center gap-1.5 pt-0.5">
               <div id="match-spec-branches-list" class="flex-1 flex items-center gap-1.5 overflow-x-auto thin-scroll py-0.5"></div>
-              <button id="match-spec-del-branch-btn" type="button" title="刪除此本端變化" class="hidden px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 text-[11px] font-bold shrink-0 transition">✕ 刪除</button>
+              <button id="match-spec-del-branch-btn" type="button" title="刪除此本地變化" class="hidden px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 text-[11px] font-bold shrink-0 transition">✕ 刪除</button>
             </div>
 
             <div class="flex items-center justify-between gap-2 pt-0.5">
               <span id="match-spec-local-hint" class="text-[11px] text-stone-500 truncate px-0.5">💡 點擊棋盤交叉點可在本端推演變化圖</span>
               <button id="match-spec-return-live-btn" type="button" class="hidden flex-1 py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white text-xs font-bold shadow-xs whitespace-nowrap transition flex items-center justify-center gap-1">↩ 回到對局實況</button>
-              <button id="match-spec-add-branch-btn" type="button" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold whitespace-nowrap shrink-0 transition">＋ 本端變化</button>
+              <button id="match-spec-add-branch-btn" type="button" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold whitespace-nowrap shrink-0 transition">＋ 本地變化</button>
             </div>
           </div>
 
@@ -3090,11 +3097,18 @@
           if (state.status === 'finished' && state.result && !state.statsRecorded) {
             settleFinishedMatchVaultStats();
           }
-          if (getMyRole() !== 'S') {
-            appState.spectatorLocalMatch = null;
-            shouldPlayIncomingStone = true;
-          } else if (appState.spectatorLocalMatch) {
+          const role = getMyRole();
+          if (appState.spectatorLocalMatch) {
             shouldPlayIncomingStone = syncLiveMovesIntoMatchSpectatorLocal(prevMovesLen);
+            const newMovesLenAfterSync = (state.moves || []).length;
+            if (
+              role !== 'S' &&
+              newMovesLenAfterSync > prevMovesLen &&
+              state.status === 'playing' &&
+              state.turn === role
+            ) {
+              showToast('🔔 對手已落子，輪到您落子！（可隨時點「回到對局實況」）', 3200);
+            }
           } else {
             shouldPlayIncomingStone = true;
           }
@@ -4649,6 +4663,7 @@
             }
             const updated = normalizeRoomFromRemote(res.snapshot.val());
             if (!updated) return;
+            appState.spectatorLocalMatch = null;
             syncVaultProfileToCloud(vault, uid, name);
             applyIncomingRoomSnapshot(updated);
             postSystemRoomNotice(`${name} 搶先入座${color === 'B' ? '執黑' : '執白'}！`);
@@ -4688,12 +4703,12 @@
       function handleMatchBoardTap(x, y) {
         if (!state || state.mode !== 'match') return;
         const role = getMyRole();
-        if (role === 'S') {
+        if (role === 'S' || appState.spectatorLocalMatch) {
           handleMatchSpectatorBoardTap(x, y);
           return;
         }
         if (state.status === 'finished') {
-          showToast('本局已結束');
+          showToast('本局已結束（可點擊下方「🌿 本地變化圖」進行覆盤推演）');
           return;
         }
         if (!state.blackUid || !state.whiteUid) {
@@ -4701,7 +4716,7 @@
           return;
         }
         if (state.turn !== role) {
-          showToast('目前輪到對手落子');
+          showToast('目前輪到對手落子（可點擊下方「🌿 本地變化圖」先行推演）');
           return;
         }
 
@@ -4727,7 +4742,7 @@
         const { x, y } = appState.pendingMove;
         appState.pendingMove = null;
         const role = getMyRole();
-        if (role === 'S' || state.turn !== role || state.status === 'finished') {
+        if (role === 'S' || appState.spectatorLocalMatch || state.turn !== role || state.status === 'finished') {
           updateMatchPrimaryActionBar();
           drawBoard();
           return;
@@ -4774,6 +4789,10 @@
         const role = getMyRole();
         if (role === 'S') {
           showToast('觀戰者無法虛手');
+          return;
+        }
+        if (appState.spectatorLocalMatch) {
+          showToast('請先點選「回到對局實況」再執行虛手');
           return;
         }
         if (state.status === 'finished') return;
@@ -4832,6 +4851,7 @@
           if (!state || state.status === 'finished') return;
           const winner = role === 'B' ? 'W' : 'B';
           const loserName = role === 'B' ? '黑方' : '白方';
+          appState.spectatorLocalMatch = null;
           state.status = 'finished';
           state.result = {
             winner,
@@ -4848,11 +4868,12 @@
         if (!state) return;
         const komi = state.boardSize === 19 ? 7.5 : 5.5;
         const viewBoard =
-          state.mode === 'match' && getMyRole() === 'S' && appState.spectatorLocalMatch
+          state.mode === 'match' && appState.spectatorLocalMatch
             ? getMatchSpectatorRenderState().board
             : state.board;
         const s = computeChineseScore(viewBoard, komi);
-        showToast(`目前盤面參考（貼${komi}目）：黑 ${s.blackArea} 子 / 白 ${s.whiteTotal} 子（${s.winner === 'B' ? '黑' : '白'}領先 ${s.margin} 子）`, 4200);
+        const prefix = state.mode === 'match' && appState.spectatorLocalMatch ? '本地變化盤面參考' : '目前盤面參考';
+        showToast(`${prefix}（貼${komi}目）：黑 ${s.blackArea} 子 / 白 ${s.whiteTotal} 子（${s.winner === 'B' ? '黑' : '白'}領先 ${s.margin} 子）`, 4200);
       }
 
       function requestUndo() {
@@ -4906,6 +4927,11 @@
         state.turn = last ? (last.color === 'B' ? 'W' : 'B') : 'B';
         state.pendingRequest = null;
         appState.pendingMove = null;
+        if (appState.spectatorLocalMatch && appState.spectatorLocalMatch.branches?.live_main) {
+          const liveBr = appState.spectatorLocalMatch.branches.live_main;
+          liveBr.moves = JSON.parse(JSON.stringify(state.moves || []));
+          liveBr.cursor = Math.min(liveBr.cursor, liveBr.moves.length);
+        }
       }
 
       function requestOrExecuteNewMatch(mode = 'open_new') {
@@ -5011,6 +5037,7 @@
         };
         state.lastTickAt = now;
         appState.pendingMove = null;
+        appState.spectatorLocalMatch = null;
         appState.lastFinishedBannerId = '';
 
         closeAllModals();
@@ -5175,6 +5202,7 @@
 
             if (live.expired && state.status === 'playing' && myRole !== 'S') {
               const winner = col === 'B' ? 'W' : 'B';
+              appState.spectatorLocalMatch = null;
               state.status = 'finished';
               state.result = {
                 winner,
@@ -5240,7 +5268,7 @@
             }
           }
 
-          if (isActiveTurn && turnHint && myRole !== 'S') {
+          if (isActiveTurn && turnHint && myRole !== 'S' && !appState.spectatorLocalMatch) {
             if (isUrgent) {
               turnHint.textContent = `🔥 急迫 ${clockText} (${byoText})`;
               turnHint.className = 'text-[11px] sm:text-xs text-rose-600 font-black animate-pulse shrink-0';
@@ -5255,12 +5283,13 @@
         });
       }
 
-      // ==================== 8.5 對弈室觀眾本端變化圖與手數導覽控制 ====================
-      function activateSpectatorLocalMatch(branchId = 'live_main', cursorOverride = null) {
-        if (!state || state.mode !== 'match' || getMyRole() !== 'S') return;
+      // ==================== 8.5 對弈室本地變化圖與手數導覽控制（對弈者與觀眾皆可使用） ====================
+      function activateSpectatorLocalMatch(branchId = 'live_main', cursorOverride = null, explicitLocal = false) {
+        if (!state || state.mode !== 'match') return;
         const liveMoves = JSON.parse(JSON.stringify(state.moves || []));
         if (!appState.spectatorLocalMatch) {
           appState.spectatorLocalMatch = {
+            explicitLocal: !!explicitLocal,
             activeBranchId: 'live_main',
             branches: {
               live_main: {
@@ -5273,6 +5302,9 @@
             }
           };
         } else {
+          if (explicitLocal) {
+            appState.spectatorLocalMatch.explicitLocal = true;
+          }
           appState.spectatorLocalMatch.branches.live_main.moves = liveMoves;
         }
         if (branchId && appState.spectatorLocalMatch.branches[branchId]) {
@@ -5284,8 +5316,17 @@
         }
       }
 
+      function openPlayerMatchLocalVariation() {
+        if (!state || state.mode !== 'match') return;
+        appState.pendingMove = null;
+        const liveLen = (state.moves || []).length;
+        activateSpectatorLocalMatch('live_main', liveLen, true);
+        updateAllRoomUI();
+        showToast('已進入本地變化圖推演模式（僅自己可見，不影響對手）');
+      }
+
       function syncLiveMovesIntoMatchSpectatorLocal(prevMovesLen) {
-        if (!state || state.mode !== 'match' || getMyRole() !== 'S' || !appState.spectatorLocalMatch) {
+        if (!state || state.mode !== 'match' || !appState.spectatorLocalMatch) {
           return true;
         }
         const loc = appState.spectatorLocalMatch;
@@ -5296,7 +5337,7 @@
         if (wasAtLiveEnd) {
           liveBr.cursor = liveBr.moves.length;
           const hasCustomBranches = Object.keys(loc.branches).length > 1;
-          if (!hasCustomBranches) {
+          if (!hasCustomBranches && !loc.explicitLocal && getMyRole() === 'S') {
             appState.spectatorLocalMatch = null;
           }
           return true;
@@ -5306,6 +5347,7 @@
 
       function returnMatchSpectatorToLive() {
         appState.spectatorLocalMatch = null;
+        appState.pendingMove = null;
         updateAllRoomUI();
         showToast('已同步回到對局最新實況');
       }
@@ -5358,7 +5400,10 @@
       }
 
       function stepMatchSpectatorCursor(delta) {
-        if (!state || state.mode !== 'match' || getMyRole() !== 'S') return;
+        if (!state || state.mode !== 'match') return;
+        const role = getMyRole();
+        if (role !== 'S' && !appState.spectatorLocalMatch) return;
+
         const liveMoves = state.moves || [];
         if (!appState.spectatorLocalMatch) {
           if (delta >= 0) {
@@ -5366,7 +5411,7 @@
             return;
           }
           const startPos = delta === -9999 ? 0 : Math.max(0, liveMoves.length + delta);
-          activateSpectatorLocalMatch('live_main', startPos);
+          activateSpectatorLocalMatch('live_main', startPos, false);
           updateAllRoomUI();
           return;
         }
@@ -5383,14 +5428,23 @@
         br.cursor = nextCursor;
         if (delta > 0) playStoneSound();
 
-        if (br.id === 'live_main' && br.cursor === total && Object.keys(loc.branches).length === 1) {
+        if (
+          br.id === 'live_main' &&
+          br.cursor === total &&
+          Object.keys(loc.branches).length === 1 &&
+          !loc.explicitLocal &&
+          role === 'S'
+        ) {
           appState.spectatorLocalMatch = null;
         }
         updateAllRoomUI();
       }
 
       function undoMatchSpectatorLocalMove() {
-        if (!state || state.mode !== 'match' || getMyRole() !== 'S') return;
+        if (!state || state.mode !== 'match') return;
+        const role = getMyRole();
+        if (role !== 'S' && !appState.spectatorLocalMatch) return;
+
         if (!appState.spectatorLocalMatch) {
           stepMatchSpectatorCursor(-1);
           return;
@@ -5411,16 +5465,16 @@
       }
 
       function createMatchSpectatorLocalBranch() {
-        if (!state || state.mode !== 'match' || getMyRole() !== 'S') return;
+        if (!state || state.mode !== 'match') return;
         const curRender = getMatchSpectatorRenderState();
-        activateSpectatorLocalMatch(curRender.activeBranchId, curRender.cursor);
+        activateSpectatorLocalMatch(curRender.activeBranchId, curRender.cursor, getMyRole() !== 'S');
         const loc = appState.spectatorLocalMatch;
         const curBr = loc.branches[loc.activeBranchId];
         const newId = generateId('mspec');
         const idx = Object.keys(loc.branches).length;
         loc.branches[newId] = {
           id: newId,
-          name: `👁️ 本端變化 ${idx}`,
+          name: `🌿 本地變化 ${idx}`,
           isLiveClone: false,
           moves: curBr.moves.slice(0, curBr.cursor),
           cursor: curBr.cursor
@@ -5435,7 +5489,13 @@
         const loc = appState.spectatorLocalMatch;
         loc.activeBranchId = branchId;
         const br = loc.branches[branchId];
-        if (branchId === 'live_main' && br.cursor >= br.moves.length && Object.keys(loc.branches).length === 1) {
+        if (
+          branchId === 'live_main' &&
+          br.cursor >= br.moves.length &&
+          Object.keys(loc.branches).length === 1 &&
+          !loc.explicitLocal &&
+          getMyRole() === 'S'
+        ) {
           appState.spectatorLocalMatch = null;
         }
         updateAllRoomUI();
@@ -5448,15 +5508,24 @@
         delete loc.branches[loc.activeBranchId];
         loc.activeBranchId = 'live_main';
         const liveBr = loc.branches.live_main;
-        if (liveBr && liveBr.cursor >= liveBr.moves.length && Object.keys(loc.branches).length === 1) {
+        if (
+          liveBr &&
+          liveBr.cursor >= liveBr.moves.length &&
+          Object.keys(loc.branches).length === 1 &&
+          !loc.explicitLocal &&
+          getMyRole() === 'S'
+        ) {
           appState.spectatorLocalMatch = null;
         }
         updateAllRoomUI();
-        showToast('已刪除此本端變化圖');
+        showToast('已刪除此本地變化圖');
       }
 
       function handleMatchSpectatorBoardTap(x, y) {
-        if (!state || state.mode !== 'match' || getMyRole() !== 'S') return;
+        if (!state || state.mode !== 'match') return;
+        const role = getMyRole();
+        if (role !== 'S' && !appState.spectatorLocalMatch) return;
+
         const curRender = getMatchSpectatorRenderState();
         const nextColor = curRender.turn || 'B';
         const cNum = nextColor === 'B' ? 1 : 2;
@@ -5466,7 +5535,7 @@
           return;
         }
 
-        activateSpectatorLocalMatch(curRender.activeBranchId, curRender.cursor);
+        activateSpectatorLocalMatch(curRender.activeBranchId, curRender.cursor, role !== 'S');
         const loc = appState.spectatorLocalMatch;
         let br = loc.branches[loc.activeBranchId];
 
@@ -5476,7 +5545,7 @@
           const idx = Object.keys(loc.branches).length;
           const newBr = {
             id: newId,
-            name: `👁️ 本端變化 ${idx} (第${baseStep}手)`,
+            name: `🌿 本地變化 ${idx} (第${baseStep}手)`,
             isLiveClone: false,
             moves: br.moves.slice(0, baseStep),
             cursor: baseStep
@@ -6072,7 +6141,7 @@
           const subTrees = ordered.map((b) => `(${serializeBranchNodes(b)})`).join('');
           return header + subTrees + ')';
         } else {
-          if (getMyRole() === 'S' && appState.spectatorLocalMatch) {
+          if (appState.spectatorLocalMatch) {
             const loc = appState.spectatorLocalMatch;
             const active = loc.branches[loc.activeBranchId] || loc.branches.live_main;
             const all = Object.values(loc.branches);
@@ -6580,13 +6649,13 @@
         }
 
         const isStudy = state.mode === 'study';
-        const isMatchSpectator = !isStudy && getMyRole() === 'S';
+        const isMatchLocal = !isStudy && !!appState.spectatorLocalMatch;
         const studyRender = isStudy ? getStudyRenderState() : null;
-        const matchSpecRender = isMatchSpectator ? getMatchSpectatorRenderState() : null;
+        const matchSpecRender = isMatchLocal ? getMatchSpectatorRenderState() : null;
 
         const board = isStudy
           ? studyRender.board
-          : isMatchSpectator
+          : isMatchLocal
             ? matchSpecRender.board
             : (state.board || createEmptyBoard(size));
         const stoneR = cellSize * 0.47;
@@ -6596,7 +6665,7 @@
         const offset = isStudy && branch ? (branch.rezeroOffset || 0) : 0;
         const movesList = isStudy
           ? studyRender.moves
-          : isMatchSpectator
+          : isMatchLocal
             ? matchSpecRender.moves
             : (state.moves || []);
         movesList.forEach((m, idx) => {
@@ -6674,8 +6743,8 @@
           ctx.stroke();
         }
 
-        // 9. 雙人對弈預選落子半透明指示
-        if (state.mode === 'match' && appState.pendingMove) {
+        // 9. 雙人對弈預選落子半透明指示（僅實況模式顯示）
+        if (state.mode === 'match' && !appState.spectatorLocalMatch && appState.pendingMove) {
           const { x, y } = appState.pendingMove;
           const px = padding + x * cellSize;
           const py = padding + y * cellSize;
@@ -6867,13 +6936,13 @@
           updateStudyPanelUI();
         } else {
           const r = getMyRole();
-          if (r === 'S') {
+          if (r === 'S' || appState.spectatorLocalMatch) {
             const specRender = getMatchSpectatorRenderState();
             const t = specRender.turn || 'B';
             if (turnDot) turnDot.className = `w-3.5 h-3.5 rounded-full border border-stone-400 shrink-0 ${t === 'B' ? 'bg-stone-900' : 'bg-white'}`;
             if (turnText) {
               if (specRender.isLocal) {
-                turnText.textContent = `👁️ ${specRender.branchName} · 第 ${specRender.cursor} / ${specRender.totalMoves} 手`;
+                turnText.textContent = `🌿 ${specRender.branchName} · 第 ${specRender.cursor} / ${specRender.totalMoves} 手`;
               } else if (state.status === 'finished') {
                 turnText.textContent = `已終局 · 共 ${moveCount} 手`;
               } else if (!state.blackUid || !state.whiteUid) {
@@ -6883,8 +6952,16 @@
               }
             }
             if (turnHint) {
-              turnHint.className = 'text-[11px] sm:text-xs text-stone-500 shrink-0';
-              turnHint.textContent = specRender.isLocal ? '本端推演（不影響對局）' : '觀戰中';
+              if (specRender.isLocal) {
+                const isMyTurnNow = r !== 'S' && state.status === 'playing' && state.blackUid && state.whiteUid && state.turn === r;
+                turnHint.textContent = isMyTurnNow ? '🔔 輪到您落子（本地推演中）' : '本地推演（不影響對局）';
+                turnHint.className = isMyTurnNow
+                  ? 'text-[11px] sm:text-xs text-rose-600 font-black animate-pulse shrink-0'
+                  : 'text-[11px] sm:text-xs text-amber-700 font-bold shrink-0';
+              } else {
+                turnHint.className = 'text-[11px] sm:text-xs text-stone-500 shrink-0';
+                turnHint.textContent = '觀戰中';
+              }
             }
           } else {
             const t = state.turn || 'B';
@@ -6942,15 +7019,16 @@
         const r = getMyRole();
         const moveCount = (state.moves || []).length;
 
-        if (r === 'S') {
+        if (r === 'S' || appState.spectatorLocalMatch) {
           const specRender = getMatchSpectatorRenderState();
           const t = specRender.turn || 'B';
           if (turnDotEl) {
             turnDotEl.className = `w-2 h-2 rounded-full border border-stone-400 shrink-0 ${t === 'B' ? 'bg-stone-900' : 'bg-white'}`;
           }
           if (centerTextEl) {
+            const isMyTurnNow = r !== 'S' && state.status === 'playing' && state.blackUid && state.whiteUid && state.turn === r;
             centerTextEl.textContent = specRender.isLocal
-              ? `推演 ${specRender.cursor}/${specRender.totalMoves}`
+              ? (isMyTurnNow ? `🔔輪到您 · 推演${specRender.cursor}/${specRender.totalMoves}` : `推演 ${specRender.cursor}/${specRender.totalMoves}`)
               : state.status === 'finished'
                 ? '已終局'
                 : (!state.blackUid || !state.whiteUid)
@@ -6981,6 +7059,7 @@
 
         const role = getMyRole();
         const isSpectator = role === 'S';
+        const isLocalVarMode = isSpectator || !!appState.spectatorLocalMatch;
         const hasOpenSeat = !state.blackUid || !state.whiteUid;
 
         if (state.status === 'waiting' && hasOpenSeat) {
@@ -6992,7 +7071,7 @@
           openSeatsBar?.classList.add('hidden');
         }
 
-        if (isSpectator) {
+        if (isLocalVarMode) {
           passBar?.classList.add('hidden');
           confirmBar?.classList.add('hidden');
           specControls?.classList.remove('hidden');
@@ -7021,9 +7100,11 @@
 
       function updateMatchSpectatorControlsUI() {
         if (!state || state.mode !== 'match') return;
+        const role = getMyRole();
         const specRender = getMatchSpectatorRenderState();
         const modeBadge = document.getElementById('match-spec-mode-badge');
         const branchLabel = document.getElementById('match-spec-branch-label');
+        const turnAlertBadge = document.getElementById('match-player-turn-alert-badge');
         const counterEl = document.getElementById('match-spec-move-counter');
         const undoBtn = document.getElementById('match-spec-undo-btn');
         const moveNumBtn = document.getElementById('match-spec-move-num-btn');
@@ -7032,6 +7113,16 @@
         const delBranchBtn = document.getElementById('match-spec-del-branch-btn');
         const localHint = document.getElementById('match-spec-local-hint');
         const returnLiveBtn = document.getElementById('match-spec-return-live-btn');
+
+        const isMyTurnAlert =
+          role !== 'S' &&
+          state.status === 'playing' &&
+          !!state.blackUid &&
+          !!state.whiteUid &&
+          state.turn === role;
+        if (turnAlertBadge) {
+          turnAlertBadge.classList.toggle('hidden', !isMyTurnAlert);
+        }
 
         if (counterEl) {
           counterEl.textContent = `${specRender.cursor} / ${specRender.totalMoves} 手`;
@@ -7045,7 +7136,7 @@
 
         if (specRender.isLocal) {
           if (modeBadge) {
-            modeBadge.textContent = '👁️ 本端推演';
+            modeBadge.textContent = '👁️ 本地推演';
             modeBadge.className = 'px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold shrink-0 whitespace-nowrap';
           }
           if (branchLabel) {
@@ -7676,8 +7767,9 @@
           confirmCreateBtn.addEventListener('click', confirmCreateRoom);
         }
 
-        // 對弈室快捷操作列、觀眾導覽列與選手卡事件
+        // 對弈室快捷操作列、本地變化圖導覽列與選手卡事件
         document.getElementById('board-pass-btn')?.addEventListener('click', handleMatchPass);
+        document.getElementById('player-open-local-var-btn')?.addEventListener('click', openPlayerMatchLocalVariation);
         document.getElementById('confirm-move-btn')?.addEventListener('click', confirmPendingMatchMove);
         document.getElementById('cancel-move-btn')?.addEventListener('click', cancelPendingMatchMove);
         document.getElementById('match-spec-nav-start')?.addEventListener('click', () => stepMatchSpectatorCursor(-9999));
