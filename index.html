@@ -283,6 +283,7 @@
         <div id="board-viewport" class="board-responsive-frame mx-auto relative flex items-center justify-center">
           <canvas id="go-board"></canvas>
           <div id="board-floating-bubble" class="hidden pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 z-10 px-3.5 py-1.5 rounded-full bg-stone-900/90 text-white text-xs font-bold shadow-lg whitespace-nowrap"></div>
+          <div id="board-eval-badge" class="hidden pointer-events-none absolute bottom-2.5 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-stone-900/90 text-white border border-amber-400/60 text-[11px] sm:text-xs font-bold shadow-lg whitespace-nowrap"></div>
         </div>
 
         <!-- 【雙人對弈室】棋盤正下方獨立操作列 -->
@@ -433,7 +434,7 @@
           <button id="mobile-tab-control" type="button" class="py-1.5 rounded-lg bg-white text-stone-900 font-bold text-xs shadow-xs transition">棋局控制</button>
           <button id="mobile-tab-chat" type="button" class="py-1.5 rounded-lg text-stone-600 font-bold text-xs transition relative">
             <span>即時聊天室</span>
-            <span id="mobile-chat-unread-dot" class="hidden inline-block w-2 h-2 rounded-full bg-rose-500 ml-1 align-middle"></span>
+            <span id="mobile-chat-unread-dot" class="hidden inline-block w-2.5 h-2.5 rounded-full bg-rose-500 ml-1.5 align-middle animate-pulse ring-2 ring-rose-300"></span>
           </button>
         </div>
 
@@ -541,7 +542,7 @@
             <div class="grid grid-cols-2 gap-2">
               <button id="request-undo-btn" type="button" class="py-2 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs transition">↩ 請求悔棋</button>
               <button id="resign-btn" type="button" class="py-2 px-3 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition">🏳️ 認輸</button>
-              <button id="score-estimate-btn" type="button" class="py-2 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs transition">🧮 數子點目</button>
+              <button id="score-estimate-btn" type="button" class="py-2 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs transition">📊 局勢評估</button>
               <button id="match-save-sgf-btn" type="button" class="py-2 px-3 rounded-xl bg-stone-800 hover:bg-stone-700 text-white font-bold text-xs transition">💾 儲存棋譜</button>
             </div>
           </div>
@@ -580,7 +581,7 @@
 
         <!-- ==================== 房內即時聊天室與在線成員列表 ==================== -->
         <div id="room-chat-column" class="hidden lg:flex flex-col space-y-3">
-          <section id="room-chat-panel" class="flex flex-col bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+          <section id="room-chat-panel" class="flex flex-col bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden transition">
             <div class="px-3.5 py-2 bg-stone-100 border-b border-stone-200 flex items-center justify-between">
               <span class="font-bold text-xs text-stone-800">💬 房內即時聊天室</span>
               <span class="text-[11px] text-stone-500">發言將保持房間活躍</span>
@@ -2466,6 +2467,156 @@
         };
       }
 
+      // 局勢評估引擎：結合完全圍空判定與棋子多輪勢力輻射模型，計算棋盤黑白勢力分布
+      function evaluateBoardInfluenceAndTerritory(board, komi = 7.5) {
+        const size = board.length;
+        const ownership = Array.from({ length: size }, () => Array(size).fill(0));
+        const visited = Array.from({ length: size }, () => Array(size).fill(false));
+        const sealedOwner = Array.from({ length: size }, () => Array(size).fill(0));
+
+        let blackStones = 0;
+        let whiteStones = 0;
+
+        for (let y = 0; y < size; y++) {
+          for (let x = 0; x < size; x++) {
+            const v = board[y][x];
+            if (v === 1) {
+              blackStones++;
+            } else if (v === 2) {
+              whiteStones++;
+            } else if (!visited[y][x]) {
+              const region = [];
+              const borders = new Set();
+              const stack = [[x, y]];
+              visited[y][x] = true;
+              while (stack.length) {
+                const [cx, cy] = stack.pop();
+                region.push([cx, cy]);
+                for (const [nx, ny] of getNeighbors(cx, cy, size)) {
+                  const nv = board[ny][nx];
+                  if (nv === 0 && !visited[ny][nx]) {
+                    visited[ny][nx] = true;
+                    stack.push([nx, ny]);
+                  } else if (nv === 1 || nv === 2) {
+                    borders.add(nv);
+                  }
+                }
+              }
+              if (borders.size === 1) {
+                const owner = borders.has(1) ? 1 : -1;
+                for (const [rx, ry] of region) {
+                  sealedOwner[ry][rx] = owner;
+                }
+              }
+            }
+          }
+        }
+
+        if (blackStones + whiteStones < 2) {
+          const whiteTotal = whiteStones + komi;
+          const diff = blackStones - whiteTotal;
+          return {
+            ownership,
+            blackStones,
+            whiteStones,
+            blackTerritory: 0,
+            whiteTerritory: 0,
+            blackTotal: blackStones,
+            whiteTotal,
+            komi,
+            winner: diff > 0 ? 'B' : 'W',
+            margin: Math.abs(diff)
+          };
+        }
+
+        const stoneSource = Array.from({ length: size }, () => Array(size).fill(0));
+        const libertyChecked = Array.from({ length: size }, () => Array(size).fill(false));
+        for (let y = 0; y < size; y++) {
+          for (let x = 0; x < size; x++) {
+            const v = board[y][x];
+            if ((v === 1 || v === 2) && !libertyChecked[y][x]) {
+              const grp = getGroupAndLiberties(board, x, y);
+              const weight = grp.liberties <= 1 ? 0.35 : 1.0;
+              const sign = v === 1 ? 1 : -1;
+              for (const [sx, sy] of grp.stones) {
+                libertyChecked[sy][sx] = true;
+                stoneSource[sy][sx] = sign * weight;
+              }
+            }
+          }
+        }
+
+        let field = stoneSource.map((row) => row.slice());
+        const iterations = 6;
+        for (let iter = 0; iter < iterations; iter++) {
+          const next = Array.from({ length: size }, () => Array(size).fill(0));
+          for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+              if (board[y][x] !== 0) {
+                next[y][x] = stoneSource[y][x];
+                continue;
+              }
+              let sum = field[y][x] * 0.45;
+              let weightSum = 0.45;
+              for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                  if (dx === 0 && dy === 0) continue;
+                  const nx = x + dx;
+                  const ny = y + dy;
+                  if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+                  const w = dx === 0 || dy === 0 ? 1.0 : 0.45;
+                  sum += field[ny][nx] * w;
+                  weightSum += w;
+                }
+              }
+              const edgeDistX = Math.min(x, size - 1 - x);
+              const edgeDistY = Math.min(y, size - 1 - y);
+              const cornerBonus = (edgeDistX <= 3 ? 1.06 : 1.0) * (edgeDistY <= 3 ? 1.06 : 1.0);
+              next[y][x] = Math.max(-1, Math.min(1, (sum / weightSum) * 0.88 * cornerBonus));
+            }
+          }
+          field = next;
+        }
+
+        let blackTerritory = 0;
+        let whiteTerritory = 0;
+        const THRESHOLD = 0.16;
+
+        for (let y = 0; y < size; y++) {
+          for (let x = 0; x < size; x++) {
+            if (board[y][x] !== 0) {
+              ownership[y][x] = 0;
+              continue;
+            }
+            const val = sealedOwner[y][x] !== 0 ? sealedOwner[y][x] : field[y][x];
+            ownership[y][x] = val;
+            if (val > THRESHOLD) {
+              blackTerritory++;
+            } else if (val < -THRESHOLD) {
+              whiteTerritory++;
+            }
+          }
+        }
+
+        const blackTotal = blackStones + blackTerritory;
+        const whitePoints = whiteStones + whiteTerritory;
+        const whiteTotal = whitePoints + komi;
+        const diff = blackTotal - whiteTotal;
+
+        return {
+          ownership,
+          blackStones,
+          whiteStones,
+          blackTerritory,
+          whiteTerritory,
+          blackTotal,
+          whiteTotal,
+          komi,
+          winner: diff > 0 ? 'B' : 'W',
+          margin: Math.abs(diff)
+        };
+      }
+
       // ==================== 4. 狀態管理與 Firebase Realtime Database 條件式即時同步 ====================
       const appState = {
         lobbyTab: 'all',
@@ -2485,7 +2636,9 @@
           seat: 'B'
         },
         mobileRoomTab: 'control',
+        hasUnreadRoomChat: false,
         showMoveNumbers: false,
+        showTerritoryOverlay: false,
         clockTickSound: true,
         lastClockTickAudioKey: '',
         pendingMove: null,
@@ -2519,6 +2672,7 @@
       let currentPresenceRef = null;
       let studyCursorSyncTimer = null;
       let searchCloudDebounceTimer = null;
+      let roomChatHighlightTimer = null;
       const renderedRoomChatIds = new Set();
 
       function getActiveFirebaseConfig() {
@@ -4383,12 +4537,16 @@
         appState.pendingMove = null;
         appState.pendingAutoJoinRoom = '';
         appState.mobileRoomTab = 'control';
+        appState.hasUnreadRoomChat = false;
+        appState.showTerritoryOverlay = false;
         appState.lastNotifiedPassCount = state.consecutivePasses || 0;
         appState.lastFinishedBannerId = '';
         appState.spectatorLocalStudy = null;
         appState.spectatorLocalMatch = null;
         appState.roomMembers = {};
         myRoomJoinedAt = Date.now();
+        document.getElementById('board-eval-badge')?.classList.add('hidden');
+        updateMobileRoomTabUI();
         syncBrowserUrlWithRoom(state);
 
         if (state.mode === 'study') {
@@ -4475,6 +4633,11 @@
         state = null;
         appState.pendingMove = null;
         appState.pendingAutoJoinRoom = '';
+        appState.mobileRoomTab = 'control';
+        appState.hasUnreadRoomChat = false;
+        appState.showTerritoryOverlay = false;
+        updateMobileRoomTabUI();
+        document.getElementById('board-eval-badge')?.classList.add('hidden');
         syncBrowserUrlWithRoom(null);
 
         document.getElementById('room-view')?.classList.add('hidden');
@@ -4630,11 +4793,13 @@
             }
           );
 
+          let isInitialChatBatch = true;
           roomChatUnsubscribe = cloudSubscribeCollection(
             `room_messages/${roomId}`,
             (msgs) => {
               msgs.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-              msgs.slice(-150).forEach((m) => appendRoomChatMessage(m, true));
+              msgs.slice(-150).forEach((m) => appendRoomChatMessage(m, !isInitialChatBatch));
+              isInitialChatBatch = false;
             },
             () => {},
             0,
@@ -5016,8 +5181,20 @@
         box.appendChild(wrapper);
         box.scrollTop = box.scrollHeight;
 
-        if (appState.mobileRoomTab !== 'chat') {
-          document.getElementById('mobile-chat-unread-dot')?.classList.remove('hidden');
+        const isFreshIncomingUserChat = isIncoming && !isMe && !isSystem;
+        if (isFreshIncomingUserChat) {
+          if (appState.mobileRoomTab !== 'chat') {
+            appState.hasUnreadRoomChat = true;
+            updateMobileRoomTabUI();
+          }
+          const chatPanel = document.getElementById('room-chat-panel');
+          if (chatPanel) {
+            chatPanel.classList.add('ring-2', 'ring-amber-400', 'border-amber-400');
+            clearTimeout(roomChatHighlightTimer);
+            roomChatHighlightTimer = setTimeout(() => {
+              chatPanel.classList.remove('ring-2', 'ring-amber-400', 'border-amber-400');
+            }, 2200);
+          }
         }
       }
 
@@ -5326,15 +5503,21 @@
       }
 
       function handleScoreEstimate() {
-        if (!state) return;
-        const komi = state.boardSize === 19 ? 7.5 : 5.5;
-        const viewBoard =
-          state.mode === 'match' && appState.spectatorLocalMatch
+        if (!state || state.mode !== 'match') return;
+        appState.showTerritoryOverlay = !appState.showTerritoryOverlay;
+        updateMatchPanelUI();
+        drawBoard();
+
+        if (appState.showTerritoryOverlay) {
+          const komi = state.boardSize === 19 ? 7.5 : 5.5;
+          const viewBoard = appState.spectatorLocalMatch
             ? getMatchSpectatorRenderState().board
             : state.board;
-        const s = computeChineseScore(viewBoard, komi);
-        const prefix = state.mode === 'match' && appState.spectatorLocalMatch ? '本地變化盤面參考' : '目前盤面參考';
-        showToast(`${prefix}（貼${komi}目）：黑 ${s.blackArea} 子 / 白 ${s.whiteTotal} 子（${s.winner === 'B' ? '黑' : '白'}領先 ${s.margin} 子）`, 4200);
+          const s = evaluateBoardInfluenceAndTerritory(viewBoard, komi);
+          showToast(`📊 已開啟局勢評估（貼${komi}目）：黑 ${s.blackTotal} 子 vs 白 ${s.whiteTotal} 子（${s.winner === 'B' ? '黑' : '白'}領先 ${s.margin} 子）`, 3600);
+        } else {
+          showToast('已關閉棋盤局勢評估顯示');
+        }
       }
 
       function requestUndo() {
@@ -7211,6 +7394,48 @@
           ctx.stroke();
         }
 
+        // 8.5 局勢評估：在空點上繪製黑白勢力方塊並更新底部評估摘要
+        const evalBadge = document.getElementById('board-eval-badge');
+        if (state.mode === 'match' && appState.showTerritoryOverlay) {
+          const komi = size === 19 ? 7.5 : 5.5;
+          const evalRes = evaluateBoardInfluenceAndTerritory(board, komi);
+          for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+              if (board[y][x] !== 0) continue;
+              const own = evalRes.ownership[y][x];
+              if (Math.abs(own) <= 0.16) continue;
+              const strength = Math.min(1, (Math.abs(own) - 0.16) / 0.65);
+              const boxSize = cellSize * (0.26 + strength * 0.18);
+              const half = boxSize / 2;
+              const cx = padding + x * cellSize;
+              const cy = padding + y * cellSize;
+
+              if (own > 0) {
+                ctx.fillStyle = `rgba(17, 24, 39, ${(0.38 + strength * 0.44).toFixed(2)})`;
+                ctx.fillRect(cx - half, cy - half, boxSize, boxSize);
+                ctx.strokeStyle = `rgba(255, 255, 255, ${(0.28 + strength * 0.3).toFixed(2)})`;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(cx - half, cy - half, boxSize, boxSize);
+              } else {
+                ctx.fillStyle = `rgba(255, 255, 255, ${(0.55 + strength * 0.4).toFixed(2)})`;
+                ctx.fillRect(cx - half, cy - half, boxSize, boxSize);
+                ctx.strokeStyle = `rgba(30, 41, 59, ${(0.35 + strength * 0.35).toFixed(2)})`;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(cx - half, cy - half, boxSize, boxSize);
+              }
+            }
+          }
+          if (evalBadge) {
+            const leadText = evalRes.margin === 0
+              ? '雙方均勢'
+              : `${evalRes.winner === 'B' ? '黑' : '白'}領先 ${evalRes.margin} 子`;
+            evalBadge.textContent = `📊 局勢（貼${komi}目）：●黑 ${evalRes.blackTotal} 子 vs ○白 ${evalRes.whiteTotal} 子｜${leadText}`;
+            evalBadge.classList.remove('hidden');
+          }
+        } else if (evalBadge) {
+          evalBadge.classList.add('hidden');
+        }
+
         // 9. 雙人對弈預選落子半透明指示（僅實況模式顯示）
         if (state.mode === 'match' && !appState.spectatorLocalMatch && appState.pendingMove) {
           const { x, y } = appState.pendingMove;
@@ -7733,6 +7958,16 @@
         if (soundBtn) {
           soundBtn.textContent = appState.clockTickSound ? '🔔 讀秒音：開' : '🔕 讀秒音：關';
         }
+        const evalBtn = document.getElementById('score-estimate-btn');
+        if (evalBtn) {
+          if (appState.showTerritoryOverlay) {
+            evalBtn.textContent = '📊 局勢評估：開';
+            evalBtn.className = 'py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-xs transition';
+          } else {
+            evalBtn.textContent = '📊 局勢評估';
+            evalBtn.className = 'py-2 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold text-xs transition';
+          }
+        }
         const mainSel = document.getElementById('room-maintime-select');
         const byoSel = document.getElementById('room-byoyomi-select');
         const lockedClock = (state.moves || []).length > 0 && state.status === 'playing';
@@ -7906,18 +8141,26 @@
         const chatCol = document.getElementById('room-chat-column');
         const tabCtrl = document.getElementById('mobile-tab-control');
         const tabChat = document.getElementById('mobile-tab-chat');
+        const unreadDot = document.getElementById('mobile-chat-unread-dot');
         const isChat = appState.mobileRoomTab === 'chat';
+
+        if (isChat) {
+          appState.hasUnreadRoomChat = false;
+        }
+        const showUnread = !isChat && !!appState.hasUnreadRoomChat;
 
         if (ctrlPanel && chatCol) {
           ctrlPanel.classList.toggle('hidden', isChat);
           chatCol.classList.toggle('hidden', !isChat);
           if (isChat) {
             chatCol.classList.add('flex');
-            document.getElementById('mobile-chat-unread-dot')?.classList.add('hidden');
             const box = document.getElementById('room-chat-messages');
             if (box) box.scrollTop = box.scrollHeight;
             renderRoomMembersList();
           }
+        }
+        if (unreadDot) {
+          unreadDot.classList.toggle('hidden', !showUnread);
         }
         if (tabCtrl && tabChat) {
           tabCtrl.className = !isChat
@@ -7925,7 +8168,9 @@
             : 'py-1.5 rounded-lg text-stone-600 font-bold text-xs transition';
           tabChat.className = isChat
             ? 'py-1.5 rounded-lg bg-white text-stone-900 font-bold text-xs shadow-xs transition relative'
-            : 'py-1.5 rounded-lg text-stone-600 font-bold text-xs transition relative';
+            : showUnread
+              ? 'py-1.5 rounded-lg bg-amber-100 text-amber-900 ring-1 ring-amber-400 font-bold text-xs transition relative'
+              : 'py-1.5 rounded-lg text-stone-600 font-bold text-xs transition relative';
         }
       }
 
